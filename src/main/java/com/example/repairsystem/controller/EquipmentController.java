@@ -1,8 +1,9 @@
 package com.example.repairsystem.controller;
 
 import com.example.repairsystem.model.Equipment;
-import com.example.repairsystem.repository.EquipmentRepository;
+import com.example.repairsystem.service.EquipmentService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -12,45 +13,55 @@ import java.util.List;
 public class EquipmentController {
 
     @Autowired
-    private EquipmentRepository equipmentRepository;
+    private EquipmentService equipmentService;
 
-    // CREATE — создать оборудование
+    /** POST /api/equipment — создать одно оборудование */
     @PostMapping
-    public List<Equipment> createMultipleEquipment(@RequestBody List<Equipment> equipmentList) {
-        return equipmentRepository.saveAll(equipmentList);
+    @ResponseStatus(HttpStatus.CREATED)
+    public Equipment createEquipment(@RequestBody Equipment equipment) {
+        return equipmentService.create(equipment);
     }
 
-    // READ — получить все оборудование
+    /** POST /api/equipment/batch — создать несколько */
+    @PostMapping("/batch")
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<Equipment> createBatch(@RequestBody List<Equipment> list) {
+        return equipmentService.createBatch(list);
+    }
+
     @GetMapping
-    public List<Equipment> getAllEquipment() {
-        return equipmentRepository.findAll();
-    }
+    public List<Equipment> getAllEquipment() { return equipmentService.getAll(); }
 
-    // READ — получить по ID
+    @GetMapping("/search")
+    public List<Equipment> search(@RequestParam String q) { return equipmentService.search(q); }
+
     @GetMapping("/{id}")
-    public Equipment getEquipmentById(@PathVariable Long id) {
-        return equipmentRepository.findById(id).orElse(null);
-    }
+    public Equipment getEquipmentById(@PathVariable Long id) { return equipmentService.getById(id); }
 
-    // UPDATE — обновить оборудование
     @PutMapping("/{id}")
     public Equipment updateEquipment(@PathVariable Long id, @RequestBody Equipment updated) {
-        Equipment equipment = equipmentRepository.findById(id).orElse(null);
-        if (equipment == null) {
-            return null;
-        }
-
-        equipment.setName(updated.getName());
-        equipment.setInventoryNumber(updated.getInventoryNumber());
-        equipment.setResponsiblePerson(updated.getResponsiblePerson());
-        equipment.setNote(updated.getNote());
-
-        return equipmentRepository.save(equipment);
+        return equipmentService.update(id, updated);
     }
 
-    // DELETE — удалить оборудование
+    /**
+     * PATCH /api/equipment/{id}/retire — списать оборудование.
+     * Не удаляет запись: история заявок сохраняется, инв.номер остаётся в БД.
+     * При повторном импорте того же инв.номера — флаг снимается.
+     */
+    @PatchMapping("/{id}/retire")
+    public Equipment retireEquipment(@PathVariable Long id) {
+        return equipmentService.retire(id);
+    }
+
+    /**
+     * PATCH /api/equipment/{id}/restore — восстановить списанное оборудование.
+     */
+    @PatchMapping("/{id}/restore")
+    public Equipment restoreEquipment(@PathVariable Long id) {
+        return equipmentService.restore(id);
+    }
+
     @DeleteMapping("/{id}")
-    public void deleteEquipment(@PathVariable Long id) {
-        equipmentRepository.deleteById(id);
-    }
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteEquipment(@PathVariable Long id) { equipmentService.delete(id); }
 }

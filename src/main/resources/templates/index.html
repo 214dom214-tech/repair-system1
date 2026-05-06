@@ -11,8 +11,8 @@
     <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
 
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f5f7; color: #333; }
-        #mainWindow { background: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); padding: 30px; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f5f7; color: #333; margin:0; padding:0; }
+        #mainWindow { background: #fff; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); padding: 20px 30px; }
         h1, h2 { color: #2c3e50; }
 
         /* === Кнопки === */
@@ -31,6 +31,25 @@
         .btn:disabled  { opacity: 0.45; cursor: not-allowed; }
 
         /* === Тулбар действий === */
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: rgba(0,0,0,0.03);
+            border: 1px solid #e0e4e8;
+            border-radius: 6px;
+        }
+        .toolbar-group-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding-right: 4px;
+            white-space: nowrap;
+        }
+
         #actionToolbar {
             display: flex;
             gap: 8px;
@@ -54,6 +73,21 @@
         #selectionInfo.active { color: #2c3e50; font-weight: 600; }
 
         /* === Таблица === */
+        #requestsTable { width:100%; border-collapse:collapse; }
+        #requestsTable td { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:0; }
+        #requestsTable td:nth-child(2) { white-space:normal; word-break:break-word; }
+
+        /* Resizable columns */
+        #requestsTable th { position:relative; }
+        #requestsTable th .resizer {
+            position:absolute; right:0; top:0; bottom:0; width:5px;
+            cursor:col-resize; user-select:none; background:transparent;
+        }
+        #requestsTable th .resizer:hover,
+        #requestsTable th .resizer.active { background:rgba(52,152,219,0.4); }
+        #filterRow th { padding:4px 6px; background:#f8f9fa; }
+        #filterRow input { font-size:11px; padding:2px 5px; height:26px; }
+
         #requestsTable { width: 100%; border-collapse: collapse; margin-top: 4px; }
         #requestsTable th, #requestsTable td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #ddd; vertical-align: middle; }
         #requestsTable th { background-color: #ecf0f1; font-weight: 600; }
@@ -76,10 +110,24 @@
         .priority-NORMAL    { background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600; white-space:nowrap; }
         .priority-EMERGENCY { background:#fdecea; color:#c62828; border:1px solid #ef9a9a; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600; white-space:nowrap; }
 
-        .ui-autocomplete { max-height: 200px; overflow-y: auto; overflow-x: hidden; }
+        .ui-autocomplete {
+            max-height: 200px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            z-index: 1100 !important;  /* выше modal-overlay (1000) */
+        }
 
         /* === Топ-бар === */
         .topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+        #stickyHeader {
+            position: sticky;
+            top: 0;
+            z-index: 900;
+            background: #fff;
+            padding: 12px 30px 0;
+            margin: -20px -30px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
         .topbar .user-info { font-size:0.9rem; color:#555; }
         .topbar .user-info strong { color:#2c3e50; }
 
@@ -134,14 +182,44 @@
         .role-badge.closer    { background:#1abc9c; color:#fff; }
         .role-badge.confirmer { background:#2ecc71; color:#fff; }
         .role-badge.deleter   { background:#95a5a6; color:#fff; }
+
+        /* Управление столбцами */
+        .col-modal-item { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid #e0e4e8; border-radius:6px; margin-bottom:6px; background:#fff; transition:background 0.1s; }
+        .col-modal-item:hover { background:#f0f7ff; }
+        .col-drag-handle { font-size:18px; color:#bbb; cursor:grab; padding:0 4px; line-height:1; }
+        .col-drag-handle:active { cursor:grabbing; }
+
+        .svc-MECHANICS    { background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600; }
+        .svc-ELECTRICIANS { background:#fff8e1; color:#f57f17; border:1px solid #ffe082; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600; }
+        .svc-ELECTRONICS  { background:#e8eaf6; color:#283593; border:1px solid #9fa8da; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600; }
+        .svc-UNKNOWN      { background:#f5f5f5; color:#9e9e9e; border:1px solid #e0e0e0; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600; }
+
+        /* Детали заявки */
+        .detail-row { display:flex; margin-bottom:8px; border-bottom:1px solid #f4f4f4; padding-bottom:8px; }
+        .detail-label { width:170px; min-width:170px; font-weight:600; font-size:13px; color:#7f8c8d; }
+        .detail-value { flex:1; color:#2c3e50; word-break:break-word; }
+        .modal-box.wide { max-width:680px; }
+
+        /* Файлы */
+        .file-list { list-style:none; padding:0; margin:4px 0 0; }
+        .file-list li { display:flex; align-items:center; gap:8px; padding:5px 8px; border:1px solid #e8e8e8; border-radius:5px; margin-bottom:4px; background:#fafafa; }
+        .file-list li .fname { flex:1; font-size:13px; word-break:break-all; }
+        .file-list li .fsize { font-size:11px; color:#bbb; white-space:nowrap; }
+        .drop-zone { border:2px dashed #ccc; border-radius:8px; padding:20px; text-align:center; color:#aaa; cursor:pointer; transition:border 0.2s; margin-top:8px; }
+        .drop-zone:hover,.drop-zone.dragover { border-color:#3498db; color:#3498db; }
+
+        /* Поля оборудования — двухколоночная сетка */
+        .eq-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 14px; }
+        .eq-grid .full { grid-column:1/-1; }
     </style>
 </head>
 <body>
-<div id="mainWindow" class="container mt-4">
+<div id="mainWindow" class="container-fluid mt-3">
 
+    <div id="stickyHeader">
     <!-- Топ-бар -->
     <div class="topbar">
-        <h1 style="margin:0">🔧 Заявки на ремонт</h1>
+        <h1 style="margin:0;font-size:1.4rem">🔧 Заявки на ремонт</h1>
         <div class="user-info">
             Вы вошли как <strong id="currentUsername">…</strong>
             &nbsp;|&nbsp;<a href="/logout">Выйти</a>
@@ -149,9 +227,18 @@
     </div>
 
     <!-- Вкладки -->
-    <ul class="nav nav-tabs mb-3" id="mainTabs">
+    <ul class="nav nav-tabs mb-0" id="mainTabs">
         <li class="nav-item">
             <a class="nav-link active" href="#" onclick="showTab('requests'); return false;">Заявки</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#" onclick="showTab('equipment'); return false;">&#9881; Оборудование</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#" onclick="showTab('directories'); return false;">&#128218; Справочники</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#" onclick="showTab('reports'); return false;">&#128202; Отчёты и статистика</a>
         </li>
         <li class="nav-item" id="adminTabItem" style="display:none;">
             <a class="nav-link" href="#" onclick="showTab('admin'); return false;">Управление пользователями</a>
@@ -162,62 +249,185 @@
     <div id="tab-requests">
 
         <!-- Тулбар действий -->
-        <div id="actionToolbar">
-            <!-- Всегда видимые -->
-            <button class="btn btn-primary btn-sm"   id="btnCreate"  style="display:none" onclick="openCreateModal()">➕ Подать заявку</button>
-            <button class="btn btn-secondary btn-sm" id="btnEdit"    style="display:none" disabled onclick="openEditModal()">✏️ Редактировать</button>
-            <div class="divider" id="dividerCreate" style="display:none"></div>
-            <!-- Действия (показываются по роли) -->
-            <button class="btn btn-warning btn-sm"   id="btnAccept"  style="display:none" disabled onclick="doAction('accept')">▶ В работу</button>
-            <button class="btn btn-info btn-sm"      id="btnClose"   style="display:none" disabled onclick="doAction('close')">✔ Закрыть</button>
-            <button class="btn btn-success btn-sm"   id="btnConfirm" style="display:none" disabled onclick="doAction('confirm')">✅ Подтвердить</button>
-            <button class="btn btn-danger btn-sm"    id="btnDelete"  style="display:none" disabled onclick="doDelete()">🗑 Удалить</button>
-            <!-- Информация о выделении -->
-            <span id="selectionInfo">Выберите заявку в таблице</span>
+        <div id="actionToolbar" style="flex-wrap:wrap;gap:6px">
+
+            <!-- Группа 1: Подача заявки (CREATOR) -->
+            <div id="grpCreator" class="toolbar-group" style="display:none">
+                <span class="toolbar-group-label">Заявка</span>
+                <button class="btn btn-primary btn-sm"   id="btnCreate"    style="display:none" onclick="openCreateModal()">&#10010; Подать</button>
+                <button class="btn btn-secondary btn-sm" id="btnDuplicate" style="display:none" disabled onclick="doDuplicate()">&#10697; Дублировать</button>
+                <button class="btn btn-secondary btn-sm" id="btnEdit"      style="display:none" disabled onclick="openEditModal()">&#9998; Редактировать</button>
+            </div>
+
+            <!-- Разделитель -->
+            <div class="divider" id="dividerWorker" style="display:none"></div>
+
+            <!-- Группа 2: Исполнение (WORKER + CLOSER) -->
+            <div id="grpWorker" class="toolbar-group" style="display:none">
+                <span class="toolbar-group-label">Исполнение</span>
+                <button class="btn btn-warning btn-sm"   id="btnAccept"    style="display:none;color:#fff" disabled onclick="doAction('accept')">&#9654; В работу</button>
+                <button class="btn btn-secondary btn-sm" id="btnChangeService" style="display:none" disabled onclick="openChangeServiceModal()">&#9881; Сменить службу</button>
+                <button class="btn btn-success btn-sm"   id="btnReopen"    style="display:none;color:#fff" disabled onclick="doAction('reopen')">&#8679; Открыть заново</button>
+                <button class="btn btn-info btn-sm"      id="btnClose"     style="display:none;color:#fff" disabled onclick="openCloseModal()">&#10003; Закрыть</button>
+            </div>
+
+            <!-- Разделитель -->
+            <div class="divider" id="dividerConfirm" style="display:none"></div>
+
+            <!-- Группа 3: Подтверждение (CONFIRMER) -->
+            <div id="grpConfirmer" class="toolbar-group" style="display:none">
+                <span class="toolbar-group-label">Подтверждение</span>
+                <button class="btn btn-success btn-sm"   id="btnConfirm"   style="display:none" disabled onclick="doAction('confirm')">&#10003; Подтвердить</button>
+            </div>
+
+            <!-- Разделитель -->
+            <div class="divider" id="dividerDelete" style="display:none"></div>
+
+            <!-- Группа 4: Удаление (DELETER) -->
+            <div id="grpDeleter" class="toolbar-group" style="display:none">
+                <span class="toolbar-group-label">Удаление</span>
+                <button class="btn btn-danger btn-sm"    id="btnDelete"    style="display:none" disabled onclick="doDelete()">&#128465; Удалить</button>
+            </div>
+
+            <!-- Правая часть -->
+            <span id="selectionInfo" style="margin-left:auto">Выберите заявку в таблице</span>
+            <button class="btn btn-secondary btn-sm" onclick="openColumnsModal()" title="Настройка столбцов">&#9776; Столбцы</button>
+        </div>
+    </div><!-- /#stickyHeader -->
+
+        <!-- Фильтр по дате -->
+        <div class="form-inline mb-2" style="gap:8px;flex-wrap:wrap">
+            <label style="font-size:13px;font-weight:600;margin-right:4px">Период:</label>
+            <input type="date" id="dateFrom" class="form-control form-control-sm" style="width:150px" title="Дата от">
+            <span style="font-size:13px;padding:0 4px">—</span>
+            <input type="date" id="dateTo" class="form-control form-control-sm" style="width:150px" title="Дата до">
+            <button class="btn btn-primary btn-sm" onclick="saveDateFilter();loadRequests()">Применить</button>
+
         </div>
 
-        <!-- Фильтр -->
-        <div class="form-inline mb-2">
-            <label class="mr-2" style="font-size:13px;font-weight:600;">Статус:</label>
-            <select id="statusFilter" class="form-control form-control-sm mr-3" onchange="loadRequests()">
-                <option value="">Все</option>
-                <option value="NEW">Новая</option>
-                <option value="IN_PROGRESS">В работе</option>
-                <option value="CLOSED">Закрыта</option>
-                <option value="CONFIRMED">Подтверждена</option>
-                <option value="CANCELLED">Отменена</option>
-            </select>
-            <label class="mr-2" style="font-size:13px;font-weight:600;">Приоритет:</label>
-            <select id="priorityFilter" class="form-control form-control-sm mr-3" onchange="loadRequests()">
-                <option value="">Все</option>
-                <option value="NORMAL">Текущая</option>
-                <option value="EMERGENCY">Аварийная</option>
-            </select>
-            <button class="btn btn-secondary btn-sm" onclick="loadRequests()">Обновить</button>
-        </div>
-
-        <!-- Таблица -->
-        <table id="requestsTable" class="table table-bordered">
-            <thead>
-            <tr>
-                <th><input type="text" class="form-control form-control-sm" placeholder="Фильтр" onkeyup="filterTable(0)"></th>
-                <th><input type="text" class="form-control form-control-sm" placeholder="Фильтр" onkeyup="filterTable(1)"></th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-            </tr>
-            <tr>
-                <th class="sortable" onclick="sortTable(0)">Название ↕</th>
-                <th class="sortable" onclick="sortTable(1)">Описание ↕</th>
-                <th class="sortable" onclick="sortTable(2)">Приоритет ↕</th>
-                <th class="sortable" onclick="sortTable(3)">Статус ↕</th>
-                <th class="sortable" onclick="sortTable(4)">Дата ↕</th>
-                <th>Оборудование</th>
-            </tr>
-            </thead>
+        <!-- Таблица — заголовки генерируются динамически через JS -->
+        <div style="width:100%;overflow-x:auto">
+        <table id="requestsTable" class="table table-bordered" style="width:100%;table-layout:fixed">
+            <colgroup id="tableColgroup"></colgroup>
+            <thead id="tableThead"></thead>
             <tbody id="list"></tbody>
         </table>
+        </div>
+    </div>
+
+    <!-- ========== ВКЛАДКА: ОБОРУДОВАНИЕ ========== -->
+    <div id="tab-equipment" style="display:none;">
+        <div class="mb-3" style="display:flex;gap:8px;align-items:center">
+            <button class="btn btn-primary" id="btnEqAdd" style="display:none" onclick="openEqModal(null)">&#43; Добавить оборудование</button>
+            <button class="btn btn-success" id="btnEqImport" style="display:none" onclick="openExcelImportModal()">&#128196; Импорт Excel</button>
+            <button class="btn btn-warning" id="btnEqRetire" disabled onclick="doRetireEquipment()" style="color:#fff;display:none">&#9888; Списать</button>
+            <button class="btn btn-danger" id="btnEqDelete" disabled onclick="doDeleteEquipment()" style="display:none">&#128465; Удалить</button>
+            <div style="display:flex;align-items:center;gap:6px;margin-left:4px">
+                <input type="checkbox" id="showRetired" onchange="loadEquipment()" style="width:14px;height:14px">
+                <label for="showRetired" style="margin:0;font-size:13px;cursor:pointer">Показать списанные</label>
+            </div>
+            <span id="eqSelectionInfo" style="font-size:13px;color:#888;margin-left:4px">Выберите оборудование</span>
+        </div>
+        <table class="table table-bordered" id="equipmentTable">
+            <thead>
+            <tr>
+                <th class="sortable" onclick="sortEquipment('name')" id="eqSort_name" style="cursor:pointer;user-select:none">Название ↕</th>
+                <th class="sortable" onclick="sortEquipment('inventoryNumber')" id="eqSort_inventoryNumber" style="cursor:pointer;user-select:none">Инв. номер ↕</th>
+                <th class="sortable" onclick="sortEquipment('responsiblePerson')" id="eqSort_responsiblePerson" style="cursor:pointer;user-select:none">МОЛ ↕</th>
+                <th class="sortable" onclick="sortEquipment('location')" id="eqSort_location" style="cursor:pointer;user-select:none">Место установки ↕</th>
+            </tr>
+            <tr>
+                <th><input type="text" class="form-control form-control-sm" placeholder="Фильтр" onkeyup="filterEqTable(0)"></th>
+                <th><input type="text" class="form-control form-control-sm" placeholder="Фильтр" onkeyup="filterEqTable(1)"></th>
+                <th><input type="text" class="form-control form-control-sm" placeholder="Фильтр" onkeyup="filterEqTable(2)"></th>
+                <th><input type="text" class="form-control form-control-sm" placeholder="Фильтр" onkeyup="filterEqTable(3)"></th>
+            </tr>
+            </thead>
+            <tbody id="equipmentList"></tbody>
+        </table>
+    </div>
+
+    <!-- ========== ВКЛАДКА: ОТЧЁТЫ И СТАТИСТИКА ========== -->
+    <div id="tab-reports" style="display:none;">
+        <h5 style="color:#2c3e50;margin-bottom:20px">&#128202; Отчёты и статистика</h5>
+
+        <!-- Заглушка — сюда будем добавлять кнопки отчётов -->
+        <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+
+            <div style="background:#f8f9fa;border:2px dashed #dee2e6;border-radius:10px;
+                        padding:40px 60px;color:#aaa;text-align:center;font-size:15px;width:100%">
+                &#128202; Отчёты будут добавлены здесь.<br>
+                <span style="font-size:13px">Форматы и состав отчётов определяется позже.</span>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ========== ВКЛАДКА: СПРАВОЧНИКИ ========== -->
+    <div id="tab-directories" style="display:none;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+
+            <!-- Корпуса -->
+            <div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 style="margin:0">&#127970; Корпуса</h5>
+                    <button class="btn btn-primary btn-sm" onclick="openBuildingModal(null)">&#43; Добавить</button>
+                </div>
+                <table class="table table-bordered table-sm" id="buildingsTable">
+                    <thead><tr><th>Название</th><th>Описание</th><th style="width:80px"></th></tr></thead>
+                    <tbody id="buildingsList"></tbody>
+                </table>
+            </div>
+
+            <!-- Участки -->
+            <div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 style="margin:0">&#128205; Участки</h5>
+                    <button class="btn btn-primary btn-sm" onclick="openSectionModal(null)">&#43; Добавить</button>
+                </div>
+                <table class="table table-bordered table-sm" id="sectionsTable">
+                    <thead><tr><th>Корпус</th><th>Участок</th><th>Описание</th><th style="width:80px"></th></tr></thead>
+                    <tbody id="sectionsList"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SMS справочники — только для ADMIN -->
+        <div id="sms-dir-section" style="display:none;margin-top:28px">
+            <hr>
+            <h5 style="color:#2c3e50;margin-bottom:16px">&#128241; Настройки SMS-уведомлений</h5>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+
+                <!-- Получатели -->
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 style="margin:0">Адреса получателей</h6>
+                        <button class="btn btn-primary btn-sm" onclick="openSmsRecipientModal(null)">&#43; Добавить</button>
+                    </div>
+                    <div style="font-size:11px;color:#888;margin-bottom:6px">
+                        Email-адрес SMS-шлюза, например: <code>79001234567@sms.ru</code>
+                    </div>
+                    <table class="table table-bordered table-sm" id="smsRecipientsTable">
+                        <thead><tr><th>Имя</th><th>Email/шлюз</th><th>Активен</th><th style="width:60px"></th></tr></thead>
+                        <tbody id="smsRecipientsList"></tbody>
+                    </table>
+                </div>
+
+                <!-- Поля SMS -->
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 style="margin:0">Поля в SMS-сообщении</h6>
+                    </div>
+                    <div style="font-size:11px;color:#888;margin-bottom:6px">
+                        Отметьте галочкой поля которые попадут в SMS. Порядок — по числу.
+                    </div>
+                    <table class="table table-bordered table-sm" id="smsFieldsTable">
+                        <thead><tr><th>&#9651;</th><th>Включить</th><th>Поле</th><th>Порядок</th></tr></thead>
+                        <tbody id="smsFieldsList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ========== ВКЛАДКА: ПОЛЬЗОВАТЕЛИ ========== -->
@@ -236,18 +446,34 @@
 <div id="modalCreate" class="modal-overlay" onclick="handleOverlay(event,'modalCreate')">
     <div class="modal-box">
         <button class="modal-close" onclick="closeModal('modalCreate')">&times;</button>
-        <h2>Создать заявку</h2>
+        <h2>Создание заявки</h2>
 
-        <span class="form-label">Название *</span>
-        <input type="text" id="c-title" class="form-control" placeholder="Введите название">
+        <div class="eq-grid">
+            <div>
+                <span class="form-label">Подразделение</span>
+                <input type="text" id="c-department" class="form-control" placeholder="Название подразделения">
+            </div>
+            <div>
+                <span class="form-label">ФИО заявителя</span>
+                <input type="text" id="c-applicantName" class="form-control" placeholder="Иванов Иван Иванович">
+            </div>
+        </div>
 
-        <span class="form-label">Описание</span>
-        <input type="text" id="c-description" class="form-control" placeholder="Введите описание">
+        <span class="form-label">Содержание заявки *</span>
+        <textarea id="c-title" class="form-control" rows="3" placeholder="Опишите проблему..."></textarea>
 
         <span class="form-label">Оборудование</span>
-        <input type="text" id="c-equipmentSearch" class="form-control" placeholder="Начните вводить название...">
-        <input type="hidden" id="c-equipmentId">
-        <small id="c-equipmentSelected" class="text-muted d-block mb-2"></small>
+        <div style="display:flex;gap:6px;align-items:flex-start">
+            <div style="flex:1">
+                <input type="text" id="c-equipmentSearch" class="form-control" placeholder="Начните вводить название или инвентарный номер...">
+                <input type="hidden" id="c-equipmentId">
+                <small id="c-equipmentSelected" class="text-muted d-block"></small>
+            </div>
+            <button type="button" class="btn btn-info btn-sm" id="c-eq-view-btn"
+                    style="margin-top:1px;white-space:nowrap;color:#fff" title="Просмотр выбранного оборудования"
+                    onclick="openEqView($('#c-equipmentId').val())" disabled>&#128065; Просмотр</button>
+        </div>
+        <div style="margin-bottom:10px"></div>
 
         <span class="form-label">Приоритет *</span>
         <div class="priority-radio">
@@ -255,7 +481,22 @@
             <div><input type="radio" name="c-priority" id="c-emergency" value="EMERGENCY"><label for="c-emergency" class="emergency-lbl">🔴 Аварийная</label></div>
         </div>
 
-        <div class="modal-actions">
+        <span class="form-label">Служба</span>
+        <select id="c-service" class="form-control" style="margin-bottom:12px">
+            <option value="UNKNOWN">Причина неизвестна</option>
+            <option value="MECHANICS">⚙ Механики</option>
+            <option value="ELECTRICIANS">⚡ Электрики</option>
+            <option value="ELECTRONICS">🔌 Электроники</option>
+        </select>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px 12px;
+                          background:#fff8e1;border:1px solid #ffe082;border-radius:6px">
+            <input type="checkbox" id="c-send-sms" style="width:16px;height:16px;cursor:pointer">
+            <label for="c-send-sms" style="margin:0;cursor:pointer;font-weight:600;font-size:13px">
+                &#128241; Отправить SMS-уведомление о заявке
+            </label>
+        </div>
+
+        <div class="modal-actions" style="margin-top:12px">
             <button class="btn btn-success" onclick="createRequest()">Создать</button>
             <button class="btn btn-secondary" onclick="closeModal('modalCreate')">Отмена</button>
         </div>
@@ -282,7 +523,7 @@
         <input type="text" id="e-description" class="form-control" placeholder="Описание">
 
         <span class="form-label">Оборудование</span>
-        <input type="text" id="e-equipmentSearch" class="form-control" placeholder="Начните вводить название...">
+        <input type="text" id="e-equipmentSearch" class="form-control" placeholder="Начните вводить название или инвентарный номер...">
         <input type="hidden" id="e-equipmentId">
         <small id="e-equipmentSelected" class="text-muted d-block mb-2"></small>
 
@@ -292,7 +533,18 @@
             <div><input type="radio" name="e-priority" id="e-emergency" value="EMERGENCY"><label for="e-emergency" class="emergency-lbl">🔴 Аварийная</label></div>
         </div>
 
-        <div class="modal-actions">
+        <span class="form-label">Примечание</span>
+        <textarea id="e-note" class="form-control" rows="2" placeholder="Дополнительные сведения..."></textarea>
+
+
+        <span class="form-label">Служба</span>
+        <select id="e-service" class="form-control" style="margin-bottom:12px">
+            <option value="UNKNOWN">Причина неизвестна</option>
+            <option value="MECHANICS">⚙ Механики</option>
+            <option value="ELECTRICIANS">⚡ Электрики</option>
+            <option value="ELECTRONICS">🔌 Электроники</option>
+        </select>
+        <div class="modal-actions" style="margin-top:16px">
             <button class="btn btn-primary" onclick="saveEdit()">Сохранить</button>
             <button class="btn btn-secondary" onclick="closeModal('modalEdit')">Отмена</button>
         </div>
@@ -337,6 +589,12 @@ const STATUS_LABEL = {
     CLOSED:'Закрыта', CONFIRMED:'Подтверждена', CANCELLED:'Отменена'
 };
 const PRIORITY_LABEL = { NORMAL:'Текущая', EMERGENCY:'Аварийная' };
+const SERVICE_LABEL = {
+    MECHANICS:    '⚙ Механики',
+    ELECTRICIANS: '⚡ Электрики',
+    ELECTRONICS:  '🔌 Электроники',
+    UNKNOWN:      'Причина неизвестна'
+};
 const ROLE_LABEL = {
     ROLE_ADMIN:'Администратор', ROLE_CREATOR:'Создатель',
     ROLE_WORKER:'Исполнитель', ROLE_CLOSER:'Закрывающий',
@@ -354,20 +612,54 @@ function hasRole(role) {
 // ===================== ИНИЦИАЛИЗАЦИЯ =====================
 $(function () {
     fetch('/api/auth/me')
-        .then(r => r.json())
+        .then(r => {
+            // Если сервер вернул не-JSON (например, редирект на /login) — редиректим вручную
+            if (r.status === 401 || r.status === 403) {
+                window.location.href = '/login';
+                return Promise.reject('not-authenticated');
+            }
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
         .then(me => {
-            currentRoles = me.roles;
-            document.getElementById('currentUsername').textContent = me.username;
+            currentRoles = me.roles || [];
+            document.getElementById('currentUsername').textContent = me.username || '';
             // Показываем кнопки по ролям
-            if (hasRole('ROLE_CREATOR')) show('btnCreate');
-            if (hasRole('ROLE_CREATOR')) { show('btnEdit'); show('dividerCreate'); }
-            if (hasRole('ROLE_WORKER'))  show('btnAccept');
-            if (hasRole('ROLE_CLOSER'))  show('btnClose');
-            if (hasRole('ROLE_CONFIRMER')) show('btnConfirm');
-            if (hasRole('ROLE_DELETER')) show('btnDelete');
-            if (hasRole('ROLE_ADMIN'))   show('adminTabItem');
+            // Группа 1 — Подача
+            if (hasRole('ROLE_CREATOR')) {
+                show('grpCreator'); show('btnCreate'); show('btnEdit'); show('btnDuplicate');
+            }
+            // Группа 2 — Исполнение
+            if (hasRole('ROLE_WORKER') || hasRole('ROLE_CLOSER')) {
+                show('grpWorker'); show('dividerWorker');
+            }
+            if (hasRole('ROLE_WORKER'))    { show('btnAccept'); show('btnChangeService'); }
+            if (hasRole('ROLE_CLOSER'))    { show('btnClose'); show('btnReopen'); show('btnChangeService'); }
+            // Группа 3 — Подтверждение
+            if (hasRole('ROLE_CONFIRMER')) { show('grpConfirmer'); show('btnConfirm'); show('dividerConfirm'); }
+            // Группа 4 — Удаление
+            if (hasRole('ROLE_DELETER'))   { show('grpDeleter'); show('btnDelete'); show('dividerDelete'); }
+            if (hasRole('ROLE_ADMIN'))     show('adminTabItem');
+            // Управление оборудованием — только ADMIN
+            if (hasRole('ROLE_ADMIN')) {
+                show('btnEqAdd'); show('btnEqImport');
+                show('btnEqRetire'); show('btnEqDelete');
+            }
+            // Список заявок всегда загружаем — он виден всем авторизованным
+            initDateFilter();
+            Settings.load().then(() => { initColumns(); loadRequests(); });
+        })
+        .catch(err => {
+            if (err === 'not-authenticated') return; // редирект уже выполнен
+            console.error('Ошибка загрузки профиля:', err);
+            document.getElementById('currentUsername').textContent = '(ошибка)';
+            // Всё равно пытаемся загрузить заявки
             loadRequests();
         });
+
+    // Простой — предпросмотр
+    document.getElementById('cl-downtime-value').addEventListener('input', updateDowntimePreview);
+    document.getElementById('cl-downtime-unit').addEventListener('change', updateDowntimePreview);
 
     // Autocomplete — создание
     setupAutocomplete('#c-equipmentSearch', '#c-equipmentId', '#c-equipmentSelected');
@@ -378,64 +670,120 @@ $(function () {
 function setupAutocomplete(searchSel, idSel, labelSel) {
     $(searchSel).autocomplete({
         minLength: 1,
+        appendTo: 'body',
+        position: { my: 'left top', at: 'left bottom', collision: 'flipfit' },
         source: function (req, resp) {
             $.get('/api/equipment/search', { q: req.term }, function (data) {
-                resp(data.map(e => ({ label: e.name, value: e.name, id: e.id })));
+                resp(data.map(e => ({
+                    label: e.inventoryNumber
+                        ? e.name + ' [' + e.inventoryNumber + ']'
+                        : e.name,
+                    value: e.name,
+                    id: e.id
+                })));
             }).fail(() => resp([]));
         },
         select: function (event, ui) {
             $(idSel).val(ui.item.id);
             $(labelSel).text('Выбрано: ' + ui.item.label + ' (id=' + ui.item.id + ')');
+            // Активируем кнопку просмотра если она есть рядом с этим полем
+            const viewBtn = document.getElementById('c-eq-view-btn');
+            if (viewBtn && idSel === '#c-equipmentId') viewBtn.disabled = false;
         }
     });
     $(searchSel).on('input', function () {
         $(idSel).val(''); $(labelSel).text('');
+        if (idSel === '#c-equipmentId') {
+            const viewBtn = document.getElementById('c-eq-view-btn');
+            if (viewBtn) viewBtn.disabled = true;
+        }
     });
 }
 
 // ===================== ВКЛАДКИ =====================
 function showTab(tab) {
-    document.getElementById('tab-requests').style.display = tab === 'requests' ? '' : 'none';
-    document.getElementById('tab-admin').style.display    = tab === 'admin'    ? '' : 'none';
+    document.getElementById('tab-requests').style.display    = tab === 'requests'    ? '' : 'none';
+    document.getElementById('tab-reports').style.display     = tab === 'reports'     ? '' : 'none';
+    document.getElementById('tab-equipment').style.display   = tab === 'equipment'   ? '' : 'none';
+    document.getElementById('tab-directories').style.display = tab === 'directories' ? '' : 'none';
+    document.getElementById('tab-admin').style.display       = tab === 'admin'       ? '' : 'none';
     document.querySelectorAll('#mainTabs .nav-link').forEach((el, i) => {
-        el.classList.toggle('active', (i===0 && tab==='requests') || (i===1 && tab==='admin'));
+        el.classList.toggle('active',
+            (i===0 && tab==='requests') || (i===1 && tab==='equipment') ||
+            (i===2 && tab==='directories') || (i===3 && tab==='reports') ||
+            (i===4 && tab==='admin'));
     });
-    if (tab === 'admin') loadUsers();
+    if (tab === 'admin')       loadUsers();
+    if (tab === 'equipment')   loadEquipment();
+    if (tab === 'directories') loadDirectories();
 }
 
 // ===================== ЗАЯВКИ =====================
+function initDateFilter() {
+    // Если у пользователя сохранён собственный период — Settings.load() его применит.
+    // Здесь устанавливаем дефолт (месяц назад — месяц вперёд) только как начальные значения.
+    const now   = new Date();
+    const from  = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    const to    = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    const fmt   = d => d.toISOString().slice(0, 10);
+    document.getElementById('dateFrom').value = fmt(from);
+    document.getElementById('dateTo').value   = fmt(to);
+}
+
 function loadRequests() {
     deselectRow();
-    const status   = document.getElementById('statusFilter').value;
-    const priority = document.getElementById('priorityFilter').value;
-    let url = '/api/requests';
-    if (status) url = `/api/requests/by-status?status=${status}`;
-    fetch(url)
+    fetch('/api/requests')
         .then(r => r.json())
-        .then(data => {
-            // Фильтрация по приоритету на клиенте (если нужно добавить серверный — добавить endpoint)
-            allRequests = priority ? data.filter(r => r.priority === priority) : data;
+        .then(rawData => { let data = rawData;
+            const from = document.getElementById('dateFrom').value;
+            const to   = document.getElementById('dateTo').value;
+            if (from || to) {
+                const dFrom = from ? new Date(from) : null;
+                const dTo   = to   ? new Date(to + 'T23:59:59') : null;
+                data = data.filter(r => {
+                    const d = r.createdAt ? new Date(r.createdAt) : null;
+                    if (!d) return false;
+                    if (dFrom && d < dFrom) return false;
+                    if (dTo   && d > dTo)   return false;
+                    return true;
+                });
+            }
+            allRequests = data;
             renderRequests(allRequests);
         })
         .catch(() => alert('Ошибка загрузки заявок'));
 }
 
+function saveDateFilter() {
+    Settings.set({
+        'date_from': document.getElementById('dateFrom').value,
+        'date_to':   document.getElementById('dateTo').value,
+        'user_date_filter': '1'
+    });
+}
+
+function clearDateFilter() {
+    document.getElementById('dateFrom').value = '';
+    document.getElementById('dateTo').value   = '';
+    loadRequests();
+}
+
 function renderRequests(data) {
     const list = document.getElementById('list');
     list.innerHTML = '';
+    const visibleCols = colConfig.filter(col => col.visible);
     data.forEach(req => {
-        const date = new Date(req.createdAt).toLocaleString('ru-RU');
         const tr = document.createElement('tr');
         tr.dataset.id = req.id;
-        tr.innerHTML = `
-            <td>${escapeHtml(req.title)}</td>
-            <td>${escapeHtml(req.description || '')}</td>
-            <td><span class="priority-${req.priority || 'NORMAL'}">${PRIORITY_LABEL[req.priority] || 'Текущая'}</span></td>
-            <td><span class="badge-${req.status}">${STATUS_LABEL[req.status] || req.status}</span></td>
-            <td>${date}</td>
-            <td>${req.equipment ? escapeHtml(req.equipment.name) : "<span class='text-muted'>—</span>"}</td>
-        `;
-        tr.addEventListener('click', () => selectRow(tr, req));
+        tr.style.cursor = 'pointer';
+        visibleCols.forEach(cfg => {
+            const td = document.createElement('td');
+            td.dataset.col = cfg.key;
+            td.innerHTML = renderCell(req, cfg.key);
+            tr.appendChild(td);
+        });
+        tr.addEventListener('click',    () => selectRow(tr, req));
+        tr.addEventListener('dblclick', () => openRequestDetail(req));
         list.appendChild(tr);
     });
 }
@@ -453,6 +801,11 @@ function deselectRow() {
     document.querySelectorAll('#list tr.selected').forEach(r => r.classList.remove('selected'));
     selectedReqId = null;
     selectedReqData = null;
+    // Восстанавливаем видимость кнопок закрытия при сбросе выделения
+    const cb = document.getElementById('btnClose');
+    const rb = document.getElementById('btnReopen');
+    if (cb) cb.style.visibility = 'visible';
+    if (rb) rb.style.visibility = 'hidden';
     updateToolbar();
 }
 
@@ -460,11 +813,35 @@ function updateToolbar() {
     const has = selectedReqId !== null;
     const st  = selectedReqData?.status;
 
-    setDisabled('btnEdit',    !has);
-    setDisabled('btnAccept',  !has || st !== 'NEW');
-    setDisabled('btnClose',   !has || st !== 'IN_PROGRESS');
-    setDisabled('btnConfirm', !has || st !== 'CLOSED');
-    setDisabled('btnDelete',  !has);
+    setDisabled('btnEdit',          !has);
+    setDisabled('btnAccept',        !has || st !== 'NEW');
+    // btnClose ↔ btnReopen — показываем одну кнопку в зависимости от статуса
+    const closeBtn  = document.getElementById('btnClose');
+    const reopenBtn = document.getElementById('btnReopen');
+    if (closeBtn && reopenBtn) {
+        if (st === 'CLOSED') {
+            // Заявка закрыта — показываем «Открыть», скрываем «Закрыть»
+            closeBtn.style.visibility  = 'hidden';
+            reopenBtn.style.visibility = 'visible';
+            reopenBtn.disabled = false;
+        } else if (st === 'IN_PROGRESS') {
+            // Заявка в работе — показываем «Закрыть», скрываем «Открыть»
+            closeBtn.style.visibility  = 'visible';
+            closeBtn.disabled = false;
+            reopenBtn.style.visibility = 'hidden';
+            reopenBtn.disabled = true;
+        } else {
+            // Любой другой статус — обе неактивны
+            closeBtn.style.visibility  = 'visible';
+            closeBtn.disabled = true;
+            reopenBtn.style.visibility = 'hidden';
+            reopenBtn.disabled = true;
+        }
+    }
+    setDisabled('btnConfirm',       !has || st !== 'CLOSED');
+    setDisabled('btnDuplicate',     !has);
+    setDisabled('btnDelete',        !has);
+    setDisabled('btnChangeService', !has || st === 'CONFIRMED' || st === 'CANCELLED');
 
     const info = document.getElementById('selectionInfo');
     if (has) {
@@ -479,7 +856,7 @@ function updateToolbar() {
 // ===================== ДЕЙСТВИЯ =====================
 function doAction(action) {
     if (!selectedReqId) return;
-    const labels = { accept:'принять в работу', close:'закрыть', confirm:'подтвердить' };
+    const labels = { accept:'принять в работу', close:'закрыть', confirm:'подтвердить', reopen:'вернуть в работу' };
     if (!confirm(`Подтвердите: ${labels[action]} заявку #${selectedReqId}?`)) return;
     fetch(`/api/requests/${selectedReqId}/${action}`, { method:'PATCH' })
         .then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.error || r.status); }); })
@@ -496,9 +873,30 @@ function doDelete() {
         .catch(err => alert('Ошибка удаления: ' + err.message));
 }
 
+// ===================== ДУБЛИРОВАНИЕ ЗАЯВКИ =====================
+function doDuplicate() {
+    if (!selectedReqData) return;
+    const src = selectedReqData;
+    if (!confirm('Создать копию заявки #' + src.id + '?')) return;
+    const body = {
+        title: src.title,
+        description: src.description || '',
+        note: src.note || '',
+        priority: src.priority || 'NORMAL',
+        status: 'NEW',
+        equipment: src.equipment ? { id: src.equipment.id } : null
+    };
+    fetch('/api/requests', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) })
+        .then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.error || r.status); }); return r.json(); })
+        .then(created => { loadRequests(); alert('Создана копия — заявка #' + created.id); })
+        .catch(err => alert('Ошибка: ' + err.message));
+}
+
 // ===================== СОЗДАНИЕ ЗАЯВКИ =====================
 function openCreateModal() {
-    $('#c-title,#c-description,#c-equipmentSearch,#c-equipmentId').val('');
+    $('#c-title,#c-equipmentSearch,#c-equipmentId,#c-department,#c-applicantName').val('');
+    document.getElementById('c-send-sms').checked = false;
+    document.getElementById('c-service').value = 'UNKNOWN';
     $('#c-equipmentSelected').text('');
     document.getElementById('c-normal').checked = true;
     openModal('modalCreate');
@@ -511,8 +909,11 @@ function createRequest() {
     const priority = document.querySelector('input[name="c-priority"]:checked').value;
     const eqId = $('#c-equipmentId').val();
     const body = {
-        title, description: $('#c-description').val().trim(),
-        priority, status: 'NEW',
+        title,
+        department: $('#c-department').val().trim(),
+        applicantName: $('#c-applicantName').val().trim(),
+        priority, serviceType: document.getElementById('c-service').value, status: 'NEW',
+        sendSms: document.getElementById('c-send-sms').checked,
         equipment: eqId ? { id: parseInt(eqId) } : null
     };
     fetch('/api/requests', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) })
@@ -533,6 +934,7 @@ function openEditModal() {
 
     $('#e-title').val(req.title);
     $('#e-description').val(req.description || '');
+    $('#e-note').val(req.note || '');
     if (req.equipment) {
         $('#e-equipmentSearch').val(req.equipment.name);
         $('#e-equipmentId').val(req.equipment.id);
@@ -543,6 +945,7 @@ function openEditModal() {
     }
     const prio = req.priority || 'NORMAL';
     document.querySelector(`input[name="e-priority"][value="${prio}"]`).checked = true;
+    document.getElementById('e-service').value = req.serviceType || 'UNKNOWN';
     openModal('modalEdit');
     setTimeout(() => $('#e-title').focus(), 100);
 }
@@ -555,13 +958,104 @@ function saveEdit() {
     const eqId = $('#e-equipmentId').val();
     const body = {
         title, description: $('#e-description').val().trim(),
-        priority, status: selectedReqData.status,
+        note: $('#e-note').val().trim(),
+        priority,
+        serviceType: document.getElementById('e-service').value,
+        status: selectedReqData.status,
         equipment: eqId ? { id: parseInt(eqId) } : null
     };
     fetch(`/api/requests/${selectedReqId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) })
         .then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.error || r.status); }); return r.json(); })
         .then(() => { closeModal('modalEdit'); loadRequests(); })
         .catch(err => alert('Ошибка: ' + err.message));
+}
+
+// ===================== МОДАЛКА ЗАКРЫТИЯ =====================
+function openCloseModal() {
+    if (!selectedReqData) return;
+    const req = selectedReqData;
+    document.getElementById('cl-id-label').textContent = '#' + req.id;
+    document.getElementById('cl-title-label').textContent = req.title;
+    // Предзаполняем текущий приоритет
+    const prio = req.priority || 'NORMAL';
+    document.querySelector('input[name="cl-priority"][value="' + prio + '"]').checked = true;
+    // Предзаполняем примечание если есть
+    document.getElementById('cl-note').value = req.note || '';
+    // Автоматически рассчитываем простой: от даты создания заявки до текущего момента
+    if (req.createdAt) {
+        const created   = new Date(req.createdAt);
+        const now       = new Date();
+        const diffMins  = Math.round((now - created) / 60000);
+        // Выбираем удобную единицу измерения
+        if (diffMins >= 1440) {
+            // Дни (округляем до 0.5 дня)
+            const days = Math.round(diffMins / 144) / 10;
+            document.getElementById('cl-downtime-value').value = days;
+            document.getElementById('cl-downtime-unit').value  = 'days';
+        } else if (diffMins >= 60) {
+            // Часы (округляем до 0.5 часа)
+            const hours = Math.round(diffMins / 6) / 10;
+            document.getElementById('cl-downtime-value').value = hours;
+            document.getElementById('cl-downtime-unit').value  = 'hours';
+        } else {
+            document.getElementById('cl-downtime-value').value = diffMins;
+            document.getElementById('cl-downtime-unit').value  = 'minutes';
+        }
+    } else {
+        document.getElementById('cl-downtime-value').value = '';
+        document.getElementById('cl-downtime-unit').value  = 'minutes';
+    }
+    updateDowntimePreview();
+    openModal('modalClose');
+    setTimeout(() => document.getElementById('cl-note').focus(), 100);
+}
+
+function doClose() {
+    if (!selectedReqId) return;
+    const priority = document.querySelector('input[name="cl-priority"]:checked').value;
+    const note     = document.getElementById('cl-note').value.trim();
+
+    // Рассчитываем простой в минутах
+    const dtVal  = parseFloat(document.getElementById('cl-downtime-value').value) || 0;
+    const dtUnit = document.getElementById('cl-downtime-unit').value;
+    let downtimeMinutes = null;
+    if (dtVal > 0) {
+        if (dtUnit === 'minutes') downtimeMinutes = Math.round(dtVal);
+        if (dtUnit === 'hours')   downtimeMinutes = Math.round(dtVal * 60);
+        if (dtUnit === 'days')    downtimeMinutes = Math.round(dtVal * 60 * 24);
+    }
+
+    fetch('/api/requests/' + selectedReqId + '/close', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            note, priority,
+            downtimeMinutes: downtimeMinutes !== null ? String(downtimeMinutes) : null
+        })
+    })
+    .then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.error || r.status); }); })
+    .then(() => { closeModal('modalClose'); loadRequests(); })
+    .catch(err => alert('Ошибка закрытия: ' + err.message));
+}
+
+// Предпросмотр простоя при изменении значения или единицы
+function updateDowntimePreview() {
+    const val  = parseFloat(document.getElementById('cl-downtime-value').value) || 0;
+    const unit = document.getElementById('cl-downtime-unit').value;
+    const prev = document.getElementById('cl-downtime-preview');
+    if (!val) { prev.textContent = ''; return; }
+    let mins = 0;
+    if (unit === 'minutes') mins = val;
+    if (unit === 'hours')   mins = val * 60;
+    if (unit === 'days')    mins = val * 60 * 24;
+    const d = Math.floor(mins / 1440);
+    const h = Math.floor((mins % 1440) / 60);
+    const m = Math.round(mins % 60);
+    let parts = [];
+    if (d) parts.push(d + ' дн.');
+    if (h) parts.push(h + ' ч.');
+    if (m) parts.push(m + ' мин.');
+    prev.textContent = '= ' + (parts.join(' ') || '0 мин.');
 }
 
 // ===================== ПОЛЬЗОВАТЕЛИ =====================
@@ -661,7 +1155,7 @@ function closeModal(id) {
 }
 function handleOverlay(e, id) { if (e.target.id === id) closeModal(id); }
 document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') ['modalCreate','modalEdit','userModalOverlay'].forEach(closeModal);
+    if (e.key === 'Escape') ['modalCreate','modalEdit','modalClose','modalRequestDetail','modalEquipment','userModalOverlay','modalBuilding','modalSection','modalExcelImport','modalEqView','modalSmsRecipient','modalColumns','modalChangeService','modalHistory'].forEach(closeModal);
 });
 
 // ===================== УТИЛИТЫ =====================
@@ -671,10 +1165,10 @@ function setDisabled(id, val) {
     if (el) el.disabled = val;
 }
 
-const filterValues = ['','','','',''];
+const filterValues = ['','','','','','','','',''];
 function filterTable(colIndex) {
-    const inputs = document.querySelectorAll('#requestsTable thead tr:first-child input');
-    filterValues[colIndex] = inputs[colIndex].value.toLowerCase();
+    const inputs = document.querySelectorAll('#filterRow input');
+    filterValues[colIndex] = inputs[colIndex - 1].value.toLowerCase(); // -1 т.к. первый th пустой
     [...document.getElementById('list').rows].forEach(row => {
         let show = true;
         filterValues.forEach((val, i) => {
@@ -705,9 +1199,1713 @@ function sortTable(n) {
     }
 }
 
+// ===================== ДЕТАЛИ ЗАЯВКИ =====================
+function openRequestDetail(req) {
+    document.getElementById('rd-id').textContent = '#' + req.id;
+    const fmt = dt => dt ? new Date(dt).toLocaleString('ru-RU') : '—';
+    const rows = [
+        ['Название',           escapeHtml(req.title)],
+        ['Описание',           escapeHtml(req.description || '—')],
+        ['Служба',             '<span class="svc-' + (req.serviceType||'UNKNOWN') + '">' + SERVICE_LABEL[req.serviceType||'UNKNOWN'] + '</span>'],
+        ['Приоритет',          req.priority === 'EMERGENCY'
+            ? '<span class="priority-EMERGENCY">Аварийная</span>'
+            : '<span class="priority-NORMAL">Текущая</span>'],
+        ['Статус выполнения',  '<span class="badge-' + req.status + '">' + (STATUS_LABEL[req.status]||req.status) + '</span>'],
+        ['Дата создания',      fmt(req.createdAt)],
+        ['Принята в работу',   fmt(req.acceptedAt)],
+        ['Дата закрытия',      fmt(req.closedAt)],
+        ['Оборудование',       req.equipment ? escapeHtml(req.equipment.name) + ' (инв. ' + (req.equipment.inventoryNumber||'—') + ')' : '—'],
+        ['Примечание',         escapeHtml(req.note || '—')],
+        ['Простой оборудования', req.downtimeMinutes ? formatDowntime(req.downtimeMinutes) : '—'],
+    ];
+    document.getElementById('rd-body').innerHTML = rows.map(([label, val]) =>
+        '<div class="detail-row"><span class="detail-label">' + label + ':</span><span class="detail-value">' + val + '</span></div>'
+    ).join('');
+
+    const btnEq = document.getElementById('rd-btn-equipment');
+    if (req.equipment && req.equipment.id) {
+        btnEq.style.display = '';
+        btnEq.dataset.eqId = req.equipment.id;
+    } else {
+        btnEq.style.display = 'none';
+    }
+    // Кнопка истории — показываем всегда (кроме только что созданных NEW без правок)
+    const histBtn = document.getElementById('rd-btn-history');
+    if (histBtn) {
+        histBtn.style.display = '';
+        histBtn.dataset.reqId = req.id;
+    }
+    openModal('modalRequestDetail');
+}
+
+function goToEquipmentFromRequest() {
+    const eqId = document.getElementById('rd-btn-equipment').dataset.eqId;
+    openEqView(eqId);
+}
+
+// ===================== ОБОРУДОВАНИЕ =====================
+let currentEqId = null;
+
+let allEquipment = [];
+let eqSortKey = 'name';
+let eqSortDir = 'asc';
+
+function loadEquipment() {
+    fetch('/api/equipment').then(r => r.json()).then(data => {
+        const showRetired = document.getElementById('showRetired');
+        if (showRetired && !showRetired.checked) {
+            data = data.filter(eq => !eq.retired);
+        }
+        allEquipment = data;
+        renderEquipment(applyEqSort(data));
+    }).catch(() => alert('Ошибка загрузки оборудования'));
+}
+
+function applyEqSort(data) {
+    return [...data].sort((a, b) => {
+        let va = getEqSortValue(a, eqSortKey);
+        let vb = getEqSortValue(b, eqSortKey);
+        const cmp = va.localeCompare(vb, 'ru', { numeric: true, sensitivity: 'base' });
+        return eqSortDir === 'asc' ? cmp : -cmp;
+    });
+}
+
+function getEqSortValue(eq, key) {
+    if (key === 'location') {
+        if (!eq.section) return '';
+        const parts = [];
+        if (eq.section.building) parts.push(eq.section.building.name);
+        parts.push(eq.section.name || '');
+        return parts.join(' ');
+    }
+    return String(eq[key] || '');
+}
+
+function sortEquipment(key) {
+    if (eqSortKey === key) {
+        eqSortDir = eqSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        eqSortKey = key;
+        eqSortDir = 'asc';
+    }
+    // Обновляем стрелки в заголовках
+    ['name','inventoryNumber','responsiblePerson','location'].forEach(k => {
+        const th = document.getElementById('eqSort_' + k);
+        if (!th) return;
+        const label = { name:'Название', inventoryNumber:'Инв. номер',
+                        responsiblePerson:'МОЛ', location:'Место установки' }[k];
+        if (k === eqSortKey) {
+            th.innerHTML = label + (eqSortDir === 'asc' ? ' ▲' : ' ▼');
+            th.style.background = '#dde4e6';
+        } else {
+            th.innerHTML = label + ' ↕';
+            th.style.background = '';
+        }
+    });
+    renderEquipment(applyEqSort(allEquipment));
+}
+
+function doRetireEquipment() {
+    if (!selectedEqId) return;
+    const eq = selectedEqData;
+    const action = eq.retired ? 'restore' : 'retire';
+    const msg    = eq.retired
+        ? 'Восстановить оборудование "' + eq.name + '"?'
+        : 'Списать оборудование "' + eq.name + '"?
+
+Оборудование будет скрыто из списка, но история заявок сохранится.';
+    if (!confirm(msg)) return;
+    fetch('/api/equipment/' + selectedEqId + '/' + action, { method: 'PATCH' })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); })
+        .then(() => loadEquipment())
+        .catch(err => alert('Ошибка: ' + err.message));
+}
+
+let selectedEqId = null;
+let selectedEqData = null;
+
+function renderEquipment(data) {
+    const tbody = document.getElementById('equipmentList');
+    tbody.innerHTML = '';
+    deselectEq();
+    data.forEach(eq => {
+        // Место установки: Корпус, Участок
+        let location = '—';
+        if (eq.section) {
+            const parts = [];
+            if (eq.section.building && eq.section.building.name) parts.push(eq.section.building.name);
+            if (eq.section.name) parts.push(eq.section.name);
+            if (parts.length) location = parts.join(', ');
+        }
+        const tr = document.createElement('tr');
+        tr.dataset.id = eq.id;
+        tr.style.cursor = 'pointer';
+        if (eq.retired) tr.style.opacity = '0.55';
+
+        const retiredBadge = eq.retired
+            ? '<span style="background:#e74c3c;color:#fff;padding:1px 6px;border-radius:4px;font-size:11px;margin-left:6px">Списано</span>'
+            : '';
+        const invBadge = eq.inventoryNumber
+            ? `<span style="font-size:11px;color:#7f8c8d">${escapeHtml(eq.inventoryNumber)}</span>`
+            : '<span style="color:#ccc;font-size:11px">—</span>';
+
+        tr.innerHTML = `
+            <td><strong>${escapeHtml(eq.name)}</strong>${retiredBadge}</td>
+            <td>${invBadge}</td>
+            <td>${escapeHtml(eq.responsiblePerson || '—')}</td>
+            <td>${escapeHtml(location)}</td>
+        `;
+        tr.addEventListener('click', () => selectEq(tr, eq));
+        tr.addEventListener('dblclick', () => openEqModal(eq.id));
+        tbody.appendChild(tr);
+    });
+}
+
+function selectEq(tr, eq) {
+    document.querySelectorAll('#equipmentList tr.selected').forEach(r => r.classList.remove('selected'));
+    tr.classList.add('selected');
+    selectedEqId = eq.id;
+    selectedEqData = eq;
+    document.getElementById('btnEqDelete').disabled = false;
+    const retireBtn = document.getElementById('btnEqRetire');
+    if (retireBtn) {
+        retireBtn.disabled = false;
+        retireBtn.textContent = eq.retired ? '↩ Восстановить' : '⚠ Списать';
+        retireBtn.className = eq.retired
+            ? 'btn btn-success btn-sm'
+            : 'btn btn-warning btn-sm';
+        retireBtn.style.color = '#fff';
+    }
+    document.getElementById('eqSelectionInfo').textContent =
+        eq.name + (eq.retired ? ' [списано]' : '') +
+        (eq.inventoryNumber ? ' · ' + eq.inventoryNumber : '');
+    document.getElementById('eqSelectionInfo').style.color = '#2c3e50';
+    document.getElementById('eqSelectionInfo').style.fontWeight = '600';
+}
+
+function deselectEq() {
+    selectedEqId = null;
+    selectedEqData = null;
+    const btn = document.getElementById('btnEqDelete');
+    if (btn) btn.disabled = true;
+    const retireBtn = document.getElementById('btnEqRetire');
+    if (retireBtn) { retireBtn.disabled = true; retireBtn.textContent = '⚠ Списать'; }
+    const info = document.getElementById('eqSelectionInfo');
+    if (info) { info.textContent = 'Выберите оборудование'; info.style.color = '#888'; info.style.fontWeight = 'normal'; }
+}
+
+function doDeleteEquipment() {
+    if (!selectedEqId) return;
+    deleteEquipment(selectedEqId, selectedEqData ? selectedEqData.name : '#' + selectedEqId);
+}
+
+function openEqModal(id) {
+    currentEqId = id;
+    document.getElementById('eq-modal-title').textContent = id ? 'Оборудование #' + id : 'Новое оборудование';
+    document.getElementById('eq-files-section').style.display = id ? '' : 'none';
+
+    // Сначала загружаем корпуса, потом открываем модалку
+    fetch('/api/buildings').then(r => r.json()).then(buildings => {
+        allBuildings = buildings;
+        populateBuildingSelects(buildings);
+
+        if (id) {
+            fetch('/api/equipment/' + id).then(r => r.json()).then(eq => {
+                document.getElementById('eq-name').value         = eq.name || '';
+                document.getElementById('eq-inv').value          = eq.inventoryNumber || '';
+                document.getElementById('eq-manufacturer').value = eq.manufacturer || '';
+                document.getElementById('eq-model').value        = eq.model || '';
+                document.getElementById('eq-serial').value       = eq.serialNumber || '';
+                document.getElementById('eq-person').value       = eq.responsiblePerson || '';
+                document.getElementById('eq-note').value         = eq.note || '';
+                // Предзаполняем корпус и участок
+                if (eq.section && eq.section.building) {
+                    document.getElementById('eq-building').value = eq.section.building.id;
+                    fetch('/api/buildings/' + eq.section.building.id + '/sections')
+                        .then(r => r.json()).then(sections => {
+                            const sel = document.getElementById('eq-section');
+                            sel.innerHTML = '<option value="">— Выберите участок —</option>';
+                            sections.forEach(s => {
+                                const opt = document.createElement('option');
+                                opt.value = s.id; opt.textContent = s.name;
+                                if (s.id === eq.section.id) opt.selected = true;
+                                sel.appendChild(opt);
+                            });
+                        });
+                } else {
+                    document.getElementById('eq-building').value = '';
+                    document.getElementById('eq-section').innerHTML = '<option value="">— Выберите участок —</option>';
+                }
+                loadEqFiles(id);
+            });
+        } else {
+            ['eq-name','eq-inv','eq-manufacturer','eq-model','eq-serial','eq-person','eq-note']
+                .forEach(i => document.getElementById(i).value = '');
+            document.getElementById('eq-building').value = '';
+            document.getElementById('eq-section').innerHTML = '<option value="">— Выберите участок —</option>';
+        }
+
+        // Drag & drop
+        const zone = document.getElementById('eq-drop-zone');
+        zone.ondragover = e => { e.preventDefault(); zone.classList.add('dragover'); };
+        zone.ondragleave = () => zone.classList.remove('dragover');
+        zone.ondrop = e => { e.preventDefault(); zone.classList.remove('dragover'); uploadFiles(e.dataTransfer.files); };
+
+        openModal('modalEquipment');
+        setTimeout(() => document.getElementById('eq-name').focus(), 100);
+    }).catch(() => {
+        // Если корпуса не загрузились — всё равно открываем
+        openModal('modalEquipment');
+        setTimeout(() => document.getElementById('eq-name').focus(), 100);
+    });
+}
+
+function saveEquipment() {
+    const name = document.getElementById('eq-name').value.trim();
+    if (!name) { alert('Введите название'); return; }
+    const body = {
+        name,
+        inventoryNumber:   document.getElementById('eq-inv').value.trim(),
+        manufacturer:      document.getElementById('eq-manufacturer').value.trim(),
+        model:             document.getElementById('eq-model').value.trim(),
+        serialNumber:      document.getElementById('eq-serial').value.trim(),
+        responsiblePerson: document.getElementById('eq-person').value.trim(),
+        note:              document.getElementById('eq-note').value.trim(),
+        section: document.getElementById('eq-section').value ? { id: parseInt(document.getElementById('eq-section').value) } : null,
+    };
+    const url    = currentEqId ? '/api/equipment/' + currentEqId : '/api/equipment';
+    const method = currentEqId ? 'PUT' : 'POST';
+    fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
+        .then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.error || r.status); }); return r.json(); })
+        .then(saved => {
+            if (!currentEqId) {
+                // Только что создали — показываем файлы
+                currentEqId = saved.id;
+                document.getElementById('eq-modal-title').textContent = 'Оборудование #' + saved.id;
+                document.getElementById('eq-files-section').style.display = '';
+                loadEqFiles(saved.id);
+            }
+            loadEquipment();
+            alert('Сохранено!');
+        })
+        .catch(err => alert('Ошибка: ' + err.message));
+}
+
+function deleteEquipment(id, name) {
+    if (!confirm('Удалить оборудование "' + name + '"?')) return;
+    fetch('/api/equipment/' + id, { method: 'DELETE' })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); })
+        .then(() => loadEquipment())
+        .catch(err => alert('Ошибка: ' + err.message));
+}
+
+// === Файлы оборудования ===
+function loadEqFiles(eqId) {
+    fetch('/api/equipment/' + eqId + '/files').then(r => r.json()).then(files => {
+        const ul = document.getElementById('eq-file-list');
+        ul.innerHTML = '';
+        files.forEach(f => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span class="file-icon">${fileIcon(f.contentType)}</span>
+                <span class="fname">${escapeHtml(f.originalName)}</span>
+                <span class="fsize">${formatBytes(f.fileSize)}</span>
+                <a class="btn btn-secondary btn-sm" href="/api/equipment/${eqId}/files/${f.id}/download" download>&#8675;</a>
+                <button class="btn btn-danger btn-sm" onclick="deleteFile(${eqId},${f.id})">&#10006;</button>
+            `;
+            ul.appendChild(li);
+        });
+    });
+}
+
+function uploadFiles(files) {
+    if (!currentEqId) { alert('Сначала сохраните оборудование'); return; }
+    [...files].forEach(file => {
+        const fd = new FormData();
+        fd.append('file', file);
+        fetch('/api/equipment/' + currentEqId + '/files', { method:'POST', body: fd })
+            .then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.error || r.status); }); })
+            .then(() => loadEqFiles(currentEqId))
+            .catch(err => alert('Ошибка загрузки ' + file.name + ': ' + err.message));
+    });
+    document.getElementById('eq-file-input').value = '';
+}
+
+function deleteFile(eqId, fileId) {
+    if (!confirm('Удалить файл?')) return;
+    fetch('/api/equipment/' + eqId + '/files/' + fileId, { method:'DELETE' })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); })
+        .then(() => loadEqFiles(eqId))
+        .catch(err => alert('Ошибка: ' + err.message));
+}
+
+function fileIcon(contentType) {
+    if (!contentType) return '&#128196;';
+    if (contentType.startsWith('image/'))       return '&#128444;';
+    if (contentType === 'application/pdf')      return '&#128209;';
+    if (contentType.includes('word'))           return '&#128196;';
+    if (contentType.includes('excel') || contentType.includes('spreadsheet')) return '&#128200;';
+    if (contentType.includes('zip') || contentType.includes('rar')) return '&#128230;';
+    return '&#128196;';
+}
+
+function formatBytes(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' Б';
+    if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' КБ';
+    return (bytes/1048576).toFixed(1) + ' МБ';
+}
+
+// Фильтр таблицы оборудования
+const eqFilterValues = ['','','','',''];
+function filterEqTable(colIndex) {
+    const inputs = document.querySelectorAll('#equipmentTable thead tr:first-child input');
+    eqFilterValues[colIndex] = inputs[colIndex].value.toLowerCase();
+    [...document.getElementById('equipmentList').rows].forEach(row => {
+        let show = true;
+        eqFilterValues.forEach((val, i) => {
+            if (!val) return;
+            const cell = row.cells[i];
+            if (cell && !cell.textContent.toLowerCase().includes(val)) show = false;
+        });
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+// ===================== RESIZABLE COLUMNS =====================
+function initResizable() {
+    const table = document.getElementById('requestsTable');
+    if (!table) return;
+    const cols = table.querySelectorAll('thead tr:first-child th');
+    cols.forEach(th => {
+        // Убираем старые resizer-ы
+        th.querySelectorAll('.resizer').forEach(r => r.remove());
+        const resizer = document.createElement('div');
+        resizer.className = 'resizer';
+        th.appendChild(resizer);
+        let startX, startW;
+        resizer.addEventListener('mousedown', e => {
+            startX = e.clientX;
+            startW = th.offsetWidth;
+            resizer.classList.add('active');
+            const onMove = ev => {
+                const col = table.querySelectorAll('colgroup col')[Array.from(cols).indexOf(th)];
+                if (col) col.style.width = Math.max(40, startW + ev.clientX - startX) + 'px';
+            };
+            const onUp = () => {
+                resizer.classList.remove('active');
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                // Сохраняем ширины после отпускания
+                const tableId = table.id;
+                if (tableId === 'requestsTable')  saveColWidths();
+                if (tableId === 'equipmentTable') saveEqColWidths();
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+            e.preventDefault();
+        });
+    });
+}
+
+// ===================== ИМПОРТ EXCEL =====================
+function openExcelImportModal() {
+    document.getElementById('excel-result').style.display = 'none';
+    document.getElementById('excel-result').innerHTML = '';
+    document.getElementById('excel-file-input').value = '';
+    // Drag & drop
+    const zone = document.getElementById('excel-drop-zone');
+    zone.ondragover = e => { e.preventDefault(); zone.classList.add('dragover'); };
+    zone.ondragleave = () => zone.classList.remove('dragover');
+    zone.ondrop = e => {
+        e.preventDefault(); zone.classList.remove('dragover');
+        if (e.dataTransfer.files[0]) doExcelImport(e.dataTransfer.files[0]);
+    };
+    openModal('modalExcelImport');
+}
+
+function doExcelImport(file) {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.xlsx')) {
+        alert('Выберите файл формата .xlsx');
+        return;
+    }
+    const resultDiv = document.getElementById('excel-result');
+    resultDiv.style.display = '';
+    resultDiv.innerHTML = '<div style="color:#888;padding:8px">&#8987; Загрузка...</div>';
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    fetch('/api/equipment/import', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(res => {
+            if (res.error) {
+                resultDiv.innerHTML = '<div style="color:#e74c3c;padding:8px">&#10060; ' + escapeHtml(res.error) + '</div>';
+                return;
+            }
+            let html = '';
+            html += '<div style="padding:10px;background:#eafaf1;border:1px solid #a9dfbf;border-radius:6px;margin-bottom:8px">';
+            html += '&#10003; <strong>Добавлено: ' + res.created + '</strong>';
+            if (res.updated > 0) html += ' &nbsp;|&nbsp; Обновлено: ' + res.updated;
+            if (res.errors  > 0) html += ' &nbsp;|&nbsp; Ошибок: ' + res.errors;
+            html += '</div>';
+            if (res.updatedList && res.updatedList.length) {
+                html += '<div style="font-size:12px;color:#2980b9;margin-bottom:4px"><strong>Обновлены:</strong><br>'
+                    + res.updatedList.map(s => '• ' + escapeHtml(s)).join('<br>') + '</div>';
+            }
+            if (res.errorList && res.errorList.length) {
+                html += '<div style="font-size:12px;color:#e74c3c"><strong>Ошибки:</strong><br>'
+                    + res.errorList.map(s => '• ' + escapeHtml(s)).join('<br>') + '</div>';
+            }
+            resultDiv.innerHTML = html;
+            if (res.added > 0) loadEquipment();
+        })
+        .catch(err => {
+            resultDiv.innerHTML = '<div style="color:#e74c3c">Ошибка: ' + escapeHtml(err.message) + '</div>';
+        });
+}
+
+// ===================== ПРОСМОТР ОБОРУДОВАНИЯ (read-only) =====================
+function openEqView(eqId) {
+    if (!eqId) { alert('Сначала выберите оборудование'); return; }
+    eqId = parseInt(eqId);
+
+    fetch('/api/equipment/' + eqId)
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(eq => {
+            document.getElementById('eqv-title').textContent =
+                'Оборудование #' + eq.id + ' — ' + (eq.name || '');
+
+            // Местонахождение
+            let location = '—';
+            if (eq.section) {
+                const parts = [];
+                if (eq.section.building && eq.section.building.name) parts.push(eq.section.building.name);
+                if (eq.section.name) parts.push(eq.section.name);
+                if (parts.length) location = parts.join(', ');
+            }
+
+            // Дата ввода в эксплуатацию
+            const commDate = eq.commissioningDate
+                ? new Date(eq.commissioningDate).toLocaleDateString('ru-RU')
+                : '—';
+
+            const rows = [
+                ['Наименование',           escapeHtml(eq.name || '—')],
+                ['Инвентарный номер',      escapeHtml(eq.inventoryNumber || '—')],
+                ['Производитель',          escapeHtml(eq.manufacturer || '—')],
+                ['Модель',                 escapeHtml(eq.model || '—')],
+                ['Серийный номер',         escapeHtml(eq.serialNumber || '—')],
+                ['МОЛ',                    escapeHtml(eq.responsiblePerson || '—')],
+                ['Местонахождение',        escapeHtml(location)],
+                ['Дата ввода в эксплуатацию', commDate],
+                ['Примечание',             escapeHtml(eq.note || '—')],
+            ];
+
+            document.getElementById('eqv-body').innerHTML = rows.map(([label, val]) =>
+                '<div class="detail-row">' +
+                '<span class="detail-label">' + label + ':</span>' +
+                '<span class="detail-value">' + val + '</span>' +
+                '</div>'
+            ).join('');
+
+            // Файлы
+            fetch('/api/equipment/' + eqId + '/files')
+                .then(r => r.json())
+                .then(files => {
+                    const section = document.getElementById('eqv-files-section');
+                    const ul = document.getElementById('eqv-file-list');
+                    ul.innerHTML = '';
+                    if (files.length === 0) {
+                        section.style.display = 'none';
+                    } else {
+                        section.style.display = '';
+                        files.forEach(f => {
+                            const li = document.createElement('li');
+                            li.innerHTML =
+                                '<span class="file-icon">' + fileIcon(f.contentType) + '</span>' +
+                                '<span class="fname">' + escapeHtml(f.originalName) + '</span>' +
+                                '<span class="fsize">' + formatBytes(f.fileSize) + '</span>' +
+                                '<a class="btn btn-secondary btn-sm mr-1" ' +
+                                '   href="/api/equipment/' + eqId + '/files/' + f.id + '/download" ' +
+                                '   download title="Скачать">&#8675; Скачать</a>' +
+                                '<a class="btn btn-primary btn-sm" ' +
+                                '   href="/api/equipment/' + eqId + '/files/' + f.id + '/download" ' +
+                                '   target="_blank" title="Открыть в новой вкладке">&#128065; Открыть</a>';
+                            ul.appendChild(li);
+                        });
+                    }
+                });
+
+            openModal('modalEqView');
+        })
+        .catch(err => alert('Ошибка загрузки оборудования: ' + err.message));
+}
+
+function formatDowntime(minutes) {
+    if (!minutes) return '—';
+    const d = Math.floor(minutes / 1440);
+    const h = Math.floor((minutes % 1440) / 60);
+    const m = minutes % 60;
+    const parts = [];
+    if (d) parts.push(d + ' дн.');
+    if (h) parts.push(h + ' ч.');
+    if (m) parts.push(m + ' мин.');
+    return parts.join(' ') || '0 мин.';
+}
+
+// ===================== НАСТРОЙКИ ПОЛЬЗОВАТЕЛЯ =====================
+// Ключи настроек:
+//   col_widths   — JSON {colIndex: widthPx} для таблицы заявок
+//   eq_col_widths — JSON для таблицы оборудования
+//   date_from, date_to — последний период фильтрации
+
+const Settings = (() => {
+    let _cache = null;          // кэш: { key: value }
+    let _saveTimer = null;      // debounce-таймер
+    let _pending = {};          // накопленные изменения
+
+    /** Загружает все настройки с сервера и применяет их */
+    async function load() {
+        try {
+            const r = await fetch('/api/settings');
+            if (!r.ok) return;
+            _cache = await r.json();
+            _apply();
+        } catch(e) {
+            console.warn('Не удалось загрузить настройки:', e);
+        }
+    }
+
+    /** Применяет загруженные настройки к UI */
+    function _apply() {
+        if (!_cache) return;
+
+        // Ширины столбцов таблицы заявок
+        if (_cache['col_widths']) {
+            try {
+                const widths = JSON.parse(_cache['col_widths']);
+                const cols   = document.querySelectorAll('#requestsTable colgroup col');
+                Object.entries(widths).forEach(([i, w]) => {
+                    if (cols[i]) cols[i].style.width = w + 'px';
+                });
+            } catch(e) {}
+        }
+
+        // Ширины столбцов таблицы оборудования
+        if (_cache['eq_col_widths']) {
+            try {
+                const widths = JSON.parse(_cache['eq_col_widths']);
+                const cols   = document.querySelectorAll('#equipmentTable colgroup col');
+                Object.entries(widths).forEach(([i, w]) => {
+                    if (cols[i]) cols[i].style.width = w + 'px';
+                });
+            } catch(e) {}
+        }
+
+        // Период фильтрации заявок (восстанавливаем только если пользователь
+        // менял его сам — поэтому проверяем флаг user_date_filter)
+        if (_cache['user_date_filter'] === '1') {
+            if (_cache['date_from']) document.getElementById('dateFrom').value = _cache['date_from'];
+            if (_cache['date_to'])   document.getElementById('dateTo').value   = _cache['date_to'];
+        }
+    }
+
+    /** Получает значение настройки из кэша */
+    function get(key) {
+        return _cache ? _cache[key] : null;
+    }
+
+    /** Сохраняет одну или несколько настроек (с debounce 800 мс) */
+    function set(keyOrObj, value) {
+        if (typeof keyOrObj === 'object') {
+            Object.assign(_pending, keyOrObj);
+        } else {
+            _pending[keyOrObj] = value;
+        }
+        if (_cache) Object.assign(_cache, _pending);
+        clearTimeout(_saveTimer);
+        _saveTimer = setTimeout(_flush, 800);
+    }
+
+    /** Немедленно отправляет накопленные настройки на сервер */
+    async function _flush() {
+        if (!Object.keys(_pending).length) return;
+        const toSave = { ..._pending };
+        _pending = {};
+        try {
+            await fetch('/api/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(toSave)
+            });
+        } catch(e) {
+            console.warn('Не удалось сохранить настройки:', e);
+        }
+    }
+
+    return { load, get, set };
+})();
+
+// Сохраняем ширины столбцов таблицы заявок при изменении (resizer)
+function saveColWidths() {
+    const cols   = document.querySelectorAll('#requestsTable colgroup col');
+    const widths = {};
+    cols.forEach((col, i) => {
+        const w = parseInt(col.style.width);
+        if (w) widths[i] = w;
+    });
+    if (Object.keys(widths).length) {
+        Settings.set('col_widths', JSON.stringify(widths));
+    }
+}
+
+// Сохраняем ширины столбцов таблицы оборудования
+function saveEqColWidths() {
+    const cols   = document.querySelectorAll('#equipmentTable colgroup col');
+    const widths = {};
+    cols.forEach((col, i) => {
+        const w = parseInt(col.style.width);
+        if (w) widths[i] = w;
+    });
+    if (Object.keys(widths).length) {
+        Settings.set('eq_col_widths', JSON.stringify(widths));
+    }
+}
+
+
+// ===================== SMS СПРАВОЧНИКИ =====================
+let editingSmsRecipientId = null;
+
+function loadSmsDirectories() {
+    loadSmsRecipients();
+    loadSmsFields();
+}
+
+// ── Получатели ──────────────────────────────────────────────
+function loadSmsRecipients() {
+    fetch('/api/sms/recipients').then(r => r.json()).then(data => {
+        const tbody = document.getElementById('smsRecipientsList');
+        tbody.innerHTML = '';
+        data.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${escapeHtml(r.name)}</td>
+                <td><code style="font-size:11px">${escapeHtml(r.email)}</code></td>
+                <td style="text-align:center">
+                    <input type="checkbox" ${r.active ? 'checked' : ''}
+                           onchange="toggleSmsRecipient(${r.id}, this.checked)">
+                </td>
+                <td>
+                    <button class="btn btn-primary btn-sm mr-1"
+                            onclick="openSmsRecipientModal(${r.id},'${escapeHtml(r.name)}','${escapeHtml(r.email)}',${r.active})">&#9998;</button>
+                    <button class="btn btn-danger btn-sm"
+                            onclick="deleteSmsRecipient(${r.id})">&#128465;</button>
+                </td>`;
+            tbody.appendChild(tr);
+        });
+    }).catch(() => {});
+}
+
+function openSmsRecipientModal(id, name, email, active) {
+    editingSmsRecipientId = id || null;
+    document.getElementById('sms-rec-modal-title').textContent = id ? 'Редактировать получателя' : 'Новый получатель';
+    document.getElementById('sms-rec-name').value   = name  || '';
+    document.getElementById('sms-rec-email').value  = email || '';
+    document.getElementById('sms-rec-active').checked = (active !== false);
+    openModal('modalSmsRecipient');
+    setTimeout(() => document.getElementById('sms-rec-name').focus(), 100);
+}
+
+function saveSmsRecipient() {
+    const name  = document.getElementById('sms-rec-name').value.trim();
+    const email = document.getElementById('sms-rec-email').value.trim();
+    if (!name)  { alert('Введите имя получателя'); return; }
+    if (!email) { alert('Введите email/адрес шлюза'); return; }
+    const body = { name, email, active: document.getElementById('sms-rec-active').checked };
+    const url    = editingSmsRecipientId ? '/api/sms/recipients/' + editingSmsRecipientId : '/api/sms/recipients';
+    const method = editingSmsRecipientId ? 'PUT' : 'POST';
+    fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
+        .then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.error || r.status); }); })
+        .then(() => { closeModal('modalSmsRecipient'); loadSmsRecipients(); })
+        .catch(err => alert('Ошибка: ' + err.message));
+}
+
+function toggleSmsRecipient(id, active) {
+    fetch('/api/sms/recipients/' + id, {
+        method: 'PUT',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ active })
+    }).then(r => { if (!r.ok) throw new Error(); })
+      .catch(() => { alert('Ошибка'); loadSmsRecipients(); });
+}
+
+function deleteSmsRecipient(id) {
+    if (!confirm('Удалить получателя?')) return;
+    fetch('/api/sms/recipients/' + id, { method: 'DELETE' })
+        .then(() => loadSmsRecipients())
+        .catch(() => alert('Ошибка'));
+}
+
+// ── Поля SMS ────────────────────────────────────────────────
+function loadSmsFields() {
+    fetch('/api/sms/fields').then(r => r.json()).then(data => {
+        const tbody = document.getElementById('smsFieldsList');
+        tbody.innerHTML = '';
+        data.forEach(f => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="text-align:center">
+                    <div style="display:flex;flex-direction:column;gap:2px">
+                        <button class="btn btn-secondary btn-sm" style="padding:0 6px;line-height:1.4"
+                                onclick="moveSmsField(${f.id}, ${f.sortOrder - 1})">&#9650;</button>
+                        <button class="btn btn-secondary btn-sm" style="padding:0 6px;line-height:1.4"
+                                onclick="moveSmsField(${f.id}, ${f.sortOrder + 1})">&#9660;</button>
+                    </div>
+                </td>
+                <td style="text-align:center">
+                    <input type="checkbox" ${f.included ? 'checked' : ''}
+                           onchange="toggleSmsField(${f.id}, this.checked)">
+                </td>
+                <td>${escapeHtml(f.label)}</td>
+                <td style="text-align:center;color:#aaa;font-size:12px">${f.sortOrder}</td>`;
+            tbody.appendChild(tr);
+        });
+    }).catch(() => {});
+}
+
+function toggleSmsField(id, included) {
+    fetch('/api/sms/fields/' + id, {
+        method: 'PUT',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ included })
+    }).then(r => { if (!r.ok) throw new Error(); })
+      .catch(() => { alert('Ошибка'); loadSmsFields(); });
+}
+
+function moveSmsField(id, newOrder) {
+    if (newOrder < 1) return;
+    fetch('/api/sms/fields/' + id, {
+        method: 'PUT',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ sortOrder: newOrder })
+    }).then(() => loadSmsFields())
+      .catch(() => alert('Ошибка'));
+}
+
+
+// ===================== УПРАВЛЕНИЕ СТОЛБЦАМИ =====================
+
+// Полный реестр всех возможных столбцов
+const ALL_COLUMNS = [
+    { key: 'id',          label: '№',                   width: 52,  noFilter: true },
+    { key: 'createdAt',   label: 'Дата регистрации',    width: 140 },
+    { key: 'department',  label: 'Подразделение',       width: 120 },
+    { key: 'applicant',   label: 'Заявитель',           width: 130 },
+    { key: 'invNumber',   label: 'Инв. номер',          width: 110 },
+    { key: 'equipment',   label: 'Оборудование',        width: 150 },
+    { key: 'status',      label: 'Статус',              width: 100 },
+    { key: 'priority',    label: 'Приоритет',           width: 100 },
+    { key: 'title',       label: 'Содержание заявки',   width: 0   }, // 0 = flex
+    { key: 'serviceType', label: 'Служба',               width: 120 },
+    { key: 'location',    label: 'Местонахождение',     width: 140 },
+    { key: 'acceptedAt',  label: 'Принята в работу',    width: 140 },
+    { key: 'closedAt',    label: 'Дата закрытия',       width: 140 },
+    { key: 'mol',         label: 'МОЛ',                 width: 130 },
+    { key: 'note',        label: 'Примечание',          width: 160 },
+    { key: 'downtime',    label: 'Простой',             width: 110 },
+];
+
+// Текущая конфигурация: [{key, visible, width}] — в порядке отображения
+let colConfig = [];
+
+/** Инициализация: загружаем из Settings или берём дефолт */
+function initColumns() {
+    const saved = Settings.get('col_config');
+    if (saved) {
+        try {
+            const parsed = JSON.parse(saved);
+            // Мёржим: добавляем новые колонки которых не было в сохранённой конфиге
+            const savedKeys = parsed.map(c => c.key);
+            colConfig = [...parsed];
+            ALL_COLUMNS.forEach(col => {
+                if (!savedKeys.includes(col.key)) {
+                    colConfig.push({ key: col.key, visible: false, width: col.width });
+                }
+            });
+            buildTableHeader();
+            return;
+        } catch(e) {}
+    }
+    // Дефолт — все видимые кроме дополнительных
+    const defaultVisible = ['id','createdAt','department','applicant','invNumber',
+                            'equipment','status','priority','title','serviceType'];
+    colConfig = ALL_COLUMNS.map(col => ({
+        key:     col.key,
+        visible: defaultVisible.includes(col.key),
+        width:   col.width
+    }));
+    buildTableHeader();
+}
+
+/** Строит colgroup и thead из текущей colConfig */
+function buildTableHeader() {
+    const visibleCols = colConfig.filter(c => c.visible);
+
+    // colgroup
+    const cg = document.getElementById('tableColgroup');
+    cg.innerHTML = '';
+    visibleCols.forEach(cfg => {
+        const col = document.createElement('col');
+        const meta = ALL_COLUMNS.find(m => m.key === cfg.key);
+        const w = cfg.width || (meta ? meta.width : 0);
+        if (w) col.style.width = w + 'px';
+        cg.appendChild(col);
+    });
+
+    // thead — строка заголовков + строка фильтров
+    const thead = document.getElementById('tableThead');
+    thead.innerHTML = '';
+
+    // Строка заголовков с drag-and-drop
+    const trHead = document.createElement('tr');
+    trHead.id = 'tableHeaderRow';
+    visibleCols.forEach((cfg, visIdx) => {
+        const meta = ALL_COLUMNS.find(m => m.key === cfg.key);
+        const th = document.createElement('th');
+        th.className = 'sortable';
+        th.dataset.key = cfg.key;
+        th.dataset.visIdx = visIdx;
+        th.draggable = true;
+        th.style.position = 'relative';
+        th.style.userSelect = 'none';
+        th.innerHTML = (meta ? meta.label : cfg.key) + ' ↕';
+
+        // Сортировка по клику
+        th.addEventListener('click', function(e) {
+            if (e.target.classList.contains('resizer')) return;
+            if (th.dataset.dragging === '1') return;
+            sortByColumn(cfg.key);
+        });
+
+        // Drag-and-drop для перемещения столбцов
+        th.addEventListener('dragstart', onColDragStart);
+        th.addEventListener('dragover',  onColDragOver);
+        th.addEventListener('drop',      onColDrop);
+        th.addEventListener('dragend',   onColDragEnd);
+
+        // Resizer
+        const resizer = document.createElement('div');
+        resizer.className = 'resizer';
+        resizer.addEventListener('mousedown', e => {
+            e.stopPropagation();
+            const startX = e.clientX;
+            const col = cg.children[visIdx];
+            const startW = col ? parseInt(col.style.width) || 100 : 100;
+            const onMove = ev => {
+                const newW = Math.max(40, startW + ev.clientX - startX);
+                if (col) col.style.width = newW + 'px';
+            };
+            const onUp = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                // Сохраняем новую ширину в colConfig
+                const newW = col ? parseInt(col.style.width) : cfg.width;
+                cfg.width = newW;
+                saveColConfig();
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+            e.preventDefault();
+        });
+        th.appendChild(resizer);
+
+        trHead.appendChild(th);
+    });
+    thead.appendChild(trHead);
+
+    // Строка фильтров
+    const trFilter = document.createElement('tr');
+    trFilter.id = 'filterRow';
+    visibleCols.forEach((cfg, visIdx) => {
+        const meta = ALL_COLUMNS.find(m => m.key === cfg.key);
+        const th = document.createElement('th');
+        th.style.padding = '4px 6px';
+        th.style.background = '#f8f9fa';
+        if (!meta || !meta.noFilter) {
+            const inp = document.createElement('input');
+            inp.type = 'text';
+            inp.className = 'form-control form-control-sm';
+            inp.placeholder = 'Фильтр';
+            inp.dataset.colKey = cfg.key;
+            inp.addEventListener('input', applyColumnFilters);
+            th.appendChild(inp);
+        }
+        trFilter.appendChild(th);
+    });
+    thead.appendChild(trFilter);
+
+    // Перерисовываем данные если они есть
+    if (allRequests && allRequests.length >= 0) renderRequests(allRequests);
+}
+
+// ── Drag-and-drop столбцов ────────────────────────────────────
+let dragSrcKey = null;
+
+function onColDragStart(e) {
+    dragSrcKey = this.dataset.key;
+    this.dataset.dragging = '1';
+    e.dataTransfer.effectAllowed = 'move';
+    this.style.opacity = '0.5';
+}
+function onColDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+}
+function onColDrop(e) {
+    e.stopPropagation();
+    const targetKey = this.dataset.key;
+    if (dragSrcKey && dragSrcKey !== targetKey) {
+        // Перемещаем в colConfig
+        const srcIdx  = colConfig.findIndex(c => c.key === dragSrcKey);
+        const tgtIdx  = colConfig.findIndex(c => c.key === targetKey);
+        if (srcIdx !== -1 && tgtIdx !== -1) {
+            const [moved] = colConfig.splice(srcIdx, 1);
+            colConfig.splice(tgtIdx, 0, moved);
+            saveColConfig();
+            buildTableHeader();
+        }
+    }
+    return false;
+}
+function onColDragEnd() {
+    this.dataset.dragging = '0';
+    this.style.opacity = '';
+    document.querySelectorAll('#tableHeaderRow th').forEach(th => {
+        th.style.borderLeft = '';
+    });
+}
+
+// ── Фильтрация по столбцам ────────────────────────────────────
+function applyColumnFilters() {
+    const inputs = document.querySelectorAll('#filterRow input[data-col-key]');
+    const filters = {};
+    inputs.forEach(inp => { filters[inp.dataset.colKey] = inp.value.toLowerCase(); });
+    [...document.getElementById('list').rows].forEach(row => {
+        let show = true;
+        Object.entries(filters).forEach(([key, val]) => {
+            if (!val) return;
+            const cell = row.querySelector(`td[data-col="${key}"]`);
+            if (cell && !cell.textContent.toLowerCase().includes(val)) show = false;
+        });
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+// ── Сортировка ────────────────────────────────────────────────
+let sortKey = null, sortDir = 'asc';
+function sortByColumn(key) {
+    if (sortKey === key) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    else { sortKey = key; sortDir = 'asc'; }
+    const sorted = [...allRequests].sort((a, b) => {
+        const va = String(getCellValue(a, key) || '').toLowerCase();
+        const vb = String(getCellValue(b, key) || '').toLowerCase();
+        return sortDir === 'asc' ? va.localeCompare(vb, 'ru') : vb.localeCompare(va, 'ru');
+    });
+    renderRequests(sorted);
+}
+
+function getCellValue(req, key) {
+    switch(key) {
+        case 'id':          return req.id;
+        case 'createdAt':   return req.createdAt;
+        case 'department':  return req.department;
+        case 'applicant':   return req.applicantName;
+        case 'invNumber':   return req.equipment ? req.equipment.inventoryNumber : '';
+        case 'equipment':   return req.equipment ? req.equipment.name : '';
+        case 'status':      return STATUS_LABEL[req.status] || req.status;
+        case 'priority':    return PRIORITY_LABEL[req.priority] || '';
+        case 'title':       return req.title;
+        case 'serviceType': return SERVICE_LABEL[req.serviceType||'UNKNOWN'] || '';
+        case 'location':    return req.equipment && req.equipment.section
+                                ? (req.equipment.section.building
+                                    ? req.equipment.section.building.name + ' ' + req.equipment.section.name
+                                    : req.equipment.section.name) : '';
+        case 'acceptedAt':  return req.acceptedAt;
+        case 'closedAt':    return req.closedAt;
+        case 'mol':         return req.equipment ? req.equipment.responsiblePerson : '';
+        case 'note':        return req.note;
+        case 'downtime':    return req.downtimeMinutes || 0;
+        default: return '';
+    }
+}
+
+// ── Рендер ячейки по ключу ────────────────────────────────────
+function renderCell(req, key) {
+    const fmt = dt => dt ? new Date(dt).toLocaleString('ru-RU') : '—';
+    switch(key) {
+        case 'id':         return `<span style="font-weight:600;color:#7f8c8d">#${req.id}</span>`;
+        case 'createdAt':  return `<span style="font-size:12px">${fmt(req.createdAt)}</span>`;
+        case 'department': return escapeHtml(req.department || '—');
+        case 'applicant':  return escapeHtml(req.applicantName || '—');
+        case 'invNumber':  return `<span style="font-size:12px">${escapeHtml(req.equipment ? req.equipment.inventoryNumber || '—' : '—')}</span>`;
+        case 'equipment':  return escapeHtml(req.equipment ? req.equipment.name : '—');
+        case 'status':     return `<span class="badge-${req.status}">${STATUS_LABEL[req.status]||req.status}</span>`;
+        case 'priority':   return `<span class="priority-${req.priority||'NORMAL'}">${PRIORITY_LABEL[req.priority]||'Текущая'}</span>`;
+        case 'title':      return escapeHtml(req.title || '');
+        case 'serviceType':return `<span class="svc-${req.serviceType||'UNKNOWN'}">${stripHtml(SERVICE_LABEL[req.serviceType||'UNKNOWN'])}</span>`;
+        case 'location': {
+            if (!req.equipment || !req.equipment.section) return '—';
+            const s = req.equipment.section;
+            return escapeHtml(s.building ? s.building.name + ', ' + s.name : s.name);
+        }
+        case 'acceptedAt': return `<span style="font-size:12px">${fmt(req.acceptedAt)}</span>`;
+        case 'closedAt':   return `<span style="font-size:12px">${fmt(req.closedAt)}</span>`;
+        case 'mol':        return escapeHtml(req.equipment ? req.equipment.responsiblePerson || '—' : '—');
+        case 'note':       return escapeHtml(req.note || '—');
+        case 'downtime':   return req.downtimeMinutes ? formatDowntime(req.downtimeMinutes) : '—';
+        default: return '';
+    }
+}
+
+// ── Сохранение конфигурации ───────────────────────────────────
+function saveColConfig() {
+    Settings.set('col_config', JSON.stringify(colConfig));
+}
+
+// ── Модалка управления столбцами ─────────────────────────────
+function openColumnsModal() {
+    const list = document.getElementById('colModalList');
+    list.innerHTML = '';
+    colConfig.forEach((cfg, idx) => {
+        const meta = ALL_COLUMNS.find(m => m.key === cfg.key);
+        const label = meta ? meta.label : cfg.key;
+        const li = document.createElement('div');
+        li.className = 'col-modal-item';
+        li.dataset.idx = idx;
+        li.draggable = true;
+        li.innerHTML = `
+            <span class="col-drag-handle">&#8645;</span>
+            <input type="checkbox" id="col_cb_${idx}" ${cfg.visible ? 'checked' : ''}
+                   onchange="colConfig[${idx}].visible=this.checked">
+            <label for="col_cb_${idx}" style="margin:0;cursor:pointer;flex:1">${escapeHtml(label)}</label>
+        `;
+        // drag-and-drop внутри модалки
+        li.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', idx); li.style.opacity='0.5'; });
+        li.addEventListener('dragend',   () => li.style.opacity='');
+        li.addEventListener('dragover',  e => { e.preventDefault(); li.style.background='#eaf4fb'; });
+        li.addEventListener('dragleave', () => li.style.background='');
+        li.addEventListener('drop', e => {
+            e.preventDefault(); li.style.background='';
+            const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+            const toIdx   = parseInt(li.dataset.idx);
+            if (fromIdx !== toIdx) {
+                const [moved] = colConfig.splice(fromIdx, 1);
+                colConfig.splice(toIdx, 0, moved);
+                openColumnsModal(); // перерисовываем список
+            }
+        });
+        list.appendChild(li);
+    });
+    openModal('modalColumns');
+}
+
+function applyColumnsModal() {
+    closeModal('modalColumns');
+    saveColConfig();
+    buildTableHeader();
+}
+
+// ===================== СМЕНА СЛУЖБЫ =====================
+function openChangeServiceModal() {
+    if (!selectedReqData) return;
+    document.getElementById('cs-current').textContent =
+        stripHtml(SERVICE_LABEL[selectedReqData.serviceType || 'UNKNOWN']);
+    document.getElementById('cs-service').value = selectedReqData.serviceType || 'UNKNOWN';
+    openModal('modalChangeService');
+}
+
+function doChangeService() {
+    if (!selectedReqId) return;
+    const serviceType = document.getElementById('cs-service').value;
+    fetch('/api/requests/' + selectedReqId + '/change-service', {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ serviceType })
+    })
+    .then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.error || r.status); }); })
+    .then(() => { closeModal('modalChangeService'); loadRequests(); })
+    .catch(err => alert('Ошибка: ' + err.message));
+}
+
+// ===================== ИСТОРИЯ ИЗМЕНЕНИЙ =====================
+const HISTORY_LABELS = {
+    CREATED:        '✅ Создана',
+    EDITED:         '✏️ Редактирование',
+    STATUS_CHANGED: '🔄 Смена статуса',
+    SERVICE_CHANGED:'⚙️ Смена службы',
+    CLOSED:         '🔒 Закрытие',
+};
+
+function openHistoryModal() {
+    const reqId = document.getElementById('rd-btn-history').dataset.reqId;
+    if (!reqId) return;
+    document.getElementById('historyList').innerHTML =
+        '<tr><td colspan="3" style="text-align:center;color:#888">Загрузка...</td></tr>';
+    openModal('modalHistory');
+    fetch('/api/requests/' + reqId + '/history')
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('historyList');
+            tbody.innerHTML = '';
+            if (!data.length) {
+                tbody.innerHTML = '<tr><td colspan="3" style="color:#aaa;text-align:center">История пуста</td></tr>';
+                return;
+            }
+            data.forEach(h => {
+                const tr = document.createElement('tr');
+                const dt = new Date(h.changedAt).toLocaleString('ru-RU');
+                const label = HISTORY_LABELS[h.changeType] || h.changeType;
+                tr.innerHTML = `
+                    <td style="white-space:nowrap;font-size:12px">${dt}</td>
+                    <td style="white-space:nowrap"><strong>${escapeHtml(h.changedBy)}</strong></td>
+                    <td style="font-size:12px">
+                        <span style="font-weight:600;color:#2c3e50">${label}</span><br>
+                        <span style="color:#555">${escapeHtml(h.details || '')}</span>
+                    </td>`;
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(() => {
+            document.getElementById('historyList').innerHTML =
+                '<tr><td colspan="3" style="color:#e74c3c">Ошибка загрузки истории</td></tr>';
+        });
+}
+
+function stripHtml(str) { return String(str).replace(/<[^>]*>/g, ''); }
+
 function escapeHtml(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
+
+<!-- ========== МОДАЛКА: ЗАКРЫТИЕ ЗАЯВКИ ========== -->
+<div id="modalClose" class="modal-overlay" onclick="handleOverlay(event,'modalClose')">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeModal('modalClose')">&times;</button>
+        <h2>Закрыть заявку <span id="cl-id-label" style="color:#aaa;font-size:1rem;"></span></h2>
+
+        <!-- Текущий статус -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:8px 12px;background:#f8f9fa;border-radius:6px;border:1px solid #e0e4e8;">
+            <span style="font-size:12px;font-weight:600;color:#888;">Заявка:</span>
+            <span id="cl-title-label" style="font-weight:600;color:#2c3e50;"></span>
+        </div>
+
+        <span class="form-label">Приоритет</span>
+        <div class="priority-radio">
+            <div><input type="radio" name="cl-priority" id="cl-normal" value="NORMAL"><label for="cl-normal" class="normal-lbl">&#127898; Текущая</label></div>
+            <div><input type="radio" name="cl-priority" id="cl-emergency" value="EMERGENCY"><label for="cl-emergency" class="emergency-lbl">&#128308; Аварийная</label></div>
+        </div>
+
+        <span class="form-label">Примечание</span>
+        <textarea id="cl-note" class="form-control" rows="2" placeholder="Опишите выполненные работы или причину закрытия..."></textarea>
+
+        <span class="form-label" style="margin-top:8px">Реальный простой оборудования</span>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
+            <input type="number" id="cl-downtime-value" class="form-control" min="0"
+                   style="width:100px" placeholder="0">
+            <select id="cl-downtime-unit" class="form-control" style="width:130px">
+                <option value="minutes">Минуты</option>
+                <option value="hours">Часы</option>
+                <option value="days">Дни</option>
+            </select>
+            <span id="cl-downtime-preview" style="font-size:13px;color:#7f8c8d;white-space:nowrap"></span>
+        </div>
+
+        <div class="modal-actions" style="margin-top:8px">
+            <button class="btn btn-info" onclick="doClose()" style="color:#fff">&#10003; Закрыть заявку</button>
+            <button class="btn btn-secondary" onclick="closeModal('modalClose')">Отмена</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ========== МОДАЛКА: ДЕТАЛИ ЗАЯВКИ (двойной клик) ========== -->
+<div id="modalRequestDetail" class="modal-overlay" onclick="handleOverlay(event,'modalRequestDetail')">
+    <div class="modal-box wide">
+        <button class="modal-close" onclick="closeModal('modalRequestDetail')">&times;</button>
+        <h2>Заявка <span id="rd-id" style="color:#aaa;font-size:1rem;"></span></h2>
+
+        <div id="rd-body"></div>
+
+        <div class="modal-actions" style="margin-top:18px">
+            <button class="btn btn-primary" id="rd-btn-equipment" style="display:none"
+                    onclick="openEqView(document.getElementById('rd-btn-equipment').dataset.eqId)">&#128279; Просмотр оборудования</button>
+            <button class="btn btn-info" id="rd-btn-history" style="display:none;color:#fff"
+                    onclick="openHistoryModal()">&#128336; История изменений</button>
+            <button class="btn btn-secondary" onclick="closeModal('modalRequestDetail')">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== МОДАЛКА: ОБОРУДОВАНИЕ (просмотр + редактирование + файлы) ========== -->
+<div id="modalEquipment" class="modal-overlay" onclick="handleOverlay(event,'modalEquipment')">
+    <div class="modal-box wide">
+        <button class="modal-close" onclick="closeModal('modalEquipment')">&times;</button>
+        <h2 id="eq-modal-title">Оборудование</h2>
+
+        <div class="eq-grid">
+            <div>
+                <span class="form-label">Название *</span>
+                <input type="text" id="eq-name" class="form-control" placeholder="Название">
+            </div>
+            <div>
+                <span class="form-label">Инвентарный номер</span>
+                <input type="text" id="eq-inv" class="form-control" placeholder="ИНВ-0001">
+            </div>
+            <div>
+                <span class="form-label">Производитель</span>
+                <input type="text" id="eq-manufacturer" class="form-control" placeholder="Производитель">
+            </div>
+            <div>
+                <span class="form-label">Модель</span>
+                <input type="text" id="eq-model" class="form-control" placeholder="Модель">
+            </div>
+            <div>
+                <span class="form-label">Серийный номер</span>
+                <input type="text" id="eq-serial" class="form-control" placeholder="Серийный номер">
+            </div>
+            <div>
+                <span class="form-label">Ответственный</span>
+                <input type="text" id="eq-person" class="form-control" placeholder="ФИО">
+            </div>
+            <div>
+                <span class="form-label">Корпус</span>
+                <select id="eq-building" class="form-control" onchange="onBuildingChange()">
+                    <option value="">— Выберите корпус —</option>
+                </select>
+            </div>
+            <div>
+                <span class="form-label">Участок</span>
+                <select id="eq-section" class="form-control">
+                    <option value="">— Выберите участок —</option>
+                </select>
+            </div>
+            <div class="full">
+                <span class="form-label">Примечание</span>
+                <textarea id="eq-note" class="form-control" rows="2" placeholder="Дополнительная информация..."></textarea>
+            </div>
+        </div>
+
+        <!-- Файлы — показываем только при редактировании существующего -->
+        <div id="eq-files-section" style="display:none;margin-top:16px">
+            <div style="font-weight:600;font-size:14px;color:#2c3e50;margin-bottom:6px">
+                &#128196; Документация и файлы
+            </div>
+            <ul class="file-list" id="eq-file-list"></ul>
+
+            <!-- Зона загрузки -->
+            <div class="drop-zone" id="eq-drop-zone" onclick="document.getElementById('eq-file-input').click()">
+                &#8679; Перетащите файлы сюда или нажмите для выбора<br>
+                <small>(документация, схемы, фото — до 50 МБ)</small>
+            </div>
+            <input type="file" id="eq-file-input" multiple style="display:none" onchange="uploadFiles(this.files)">
+        </div>
+
+        <div class="modal-actions" style="margin-top:18px">
+            <button class="btn btn-success" onclick="saveEquipment()">Сохранить</button>
+            <button class="btn btn-secondary" onclick="closeModal('modalEquipment')">Отмена</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ========== МОДАЛКА: ИМПОРТ EXCEL ========== -->
+<div id="modalExcelImport" class="modal-overlay" onclick="handleOverlay(event,'modalExcelImport')">
+    <div class="modal-box" style="max-width:600px">
+        <button class="modal-close" onclick="closeModal('modalExcelImport')">&times;</button>
+        <h2>&#128196; Импорт оборудования из Excel</h2>
+
+        <!-- Инструкция -->
+        <div style="background:#f0f7ff;border:1px solid #b3d4f5;border-radius:7px;padding:14px 16px;margin-bottom:18px">
+            <div style="font-weight:700;color:#1a5276;margin-bottom:8px">&#9432; Требования к файлу Excel (.xlsx)</div>
+            <div style="font-size:13px;color:#2c3e50;line-height:1.7">
+                Первая строка — заголовок (будет пропущена автоматически).<br>
+                Начиная со второй строки — данные оборудования в следующем порядке:
+            </div>
+            <table style="width:100%;margin-top:10px;font-size:13px;border-collapse:collapse">
+                <thead>
+                    <tr style="background:#d6eaf8">
+                        <th style="padding:5px 10px;border:1px solid #aed6f1;text-align:center">A</th>
+                        <th style="padding:5px 10px;border:1px solid #aed6f1;text-align:center">B</th>
+                        <th style="padding:5px 10px;border:1px solid #aed6f1;text-align:center">C</th>
+                        <th style="padding:5px 10px;border:1px solid #aed6f1;text-align:center">D</th>
+                    </tr>
+                    <tr style="background:#ebf5fb">
+                        <th style="padding:5px 10px;border:1px solid #aed6f1">Инв. номер</th>
+                        <th style="padding:5px 10px;border:1px solid #aed6f1">Наименование *</th>
+                        <th style="padding:5px 10px;border:1px solid #aed6f1">Дата ввода в эксплуатацию</th>
+                        <th style="padding:5px 10px;border:1px solid #aed6f1">МОЛ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding:4px 10px;border:1px solid #aed6f1;color:#888">ИНВ-001</td>
+                        <td style="padding:4px 10px;border:1px solid #aed6f1">Станок токарный</td>
+                        <td style="padding:4px 10px;border:1px solid #aed6f1;color:#888">01.03.2022</td>
+                        <td style="padding:4px 10px;border:1px solid #aed6f1;color:#888">Иванов И.И.</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div style="font-size:12px;color:#5d6d7e;margin-top:10px">
+                * — обязательное поле. Дата в формате <strong>дд.мм.гггг</strong>.
+                Если инв. номер уже есть в базе — строка будет пропущена.
+            </div>
+        </div>
+
+        <!-- Зона загрузки -->
+        <div class="drop-zone" id="excel-drop-zone"
+             onclick="document.getElementById('excel-file-input').click()"
+             style="margin-bottom:12px">
+            &#8679; Перетащите файл .xlsx сюда или нажмите для выбора
+        </div>
+        <input type="file" id="excel-file-input" accept=".xlsx" style="display:none"
+               onchange="doExcelImport(this.files[0])">
+
+        <!-- Результат -->
+        <div id="excel-result" style="display:none;margin-top:12px"></div>
+
+        <div class="modal-actions" style="margin-top:16px">
+            <button class="btn btn-secondary" onclick="closeModal('modalExcelImport')">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== МОДАЛКА: ПРОСМОТР ОБОРУДОВАНИЯ (read-only) ========== -->
+<div id="modalEqView" class="modal-overlay" onclick="handleOverlay(event,'modalEqView')">
+    <div class="modal-box wide">
+        <button class="modal-close" onclick="closeModal('modalEqView')">&times;</button>
+        <h2 id="eqv-title">Оборудование</h2>
+
+        <div id="eqv-body"></div>
+
+        <!-- Файлы -->
+        <div id="eqv-files-section" style="margin-top:16px;display:none">
+            <div style="font-weight:600;font-size:14px;color:#2c3e50;margin-bottom:8px">
+                &#128196; Документация и файлы
+            </div>
+            <ul class="file-list" id="eqv-file-list"></ul>
+        </div>
+
+        <div class="modal-actions" style="margin-top:18px">
+            <button class="btn btn-secondary" onclick="closeModal('modalEqView')">Закрыть</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
+
+<!-- ========== МОДАЛКИ: СПРАВОЧНИКИ ========== -->
+<div id="modalBuilding" class="modal-overlay" onclick="handleOverlay(event,'modalBuilding')">
+    <div class="modal-box" style="max-width:420px">
+        <button class="modal-close" onclick="closeModal('modalBuilding')">&times;</button>
+        <h2 id="building-modal-title">Корпус</h2>
+        <span class="form-label">Название *</span>
+        <input type="text" id="building-name" class="form-control" placeholder="Например: Корпус А">
+        <span class="form-label">Описание</span>
+        <input type="text" id="building-desc" class="form-control" placeholder="Краткое описание">
+        <div class="modal-actions" style="margin-top:16px">
+            <button class="btn btn-success" onclick="saveBuilding()">Сохранить</button>
+            <button class="btn btn-secondary" onclick="closeModal('modalBuilding')">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalSection" class="modal-overlay" onclick="handleOverlay(event,'modalSection')">
+    <div class="modal-box" style="max-width:420px">
+        <button class="modal-close" onclick="closeModal('modalSection')">&times;</button>
+        <h2 id="section-modal-title">Участок</h2>
+        <span class="form-label">Корпус *</span>
+        <select id="section-building" class="form-control"></select>
+        <span class="form-label">Название участка *</span>
+        <input type="text" id="section-name" class="form-control" placeholder="Например: Участок сборки">
+        <span class="form-label">Описание</span>
+        <input type="text" id="section-desc" class="form-control" placeholder="Краткое описание">
+        <div class="modal-actions" style="margin-top:16px">
+            <button class="btn btn-success" onclick="saveSection()">Сохранить</button>
+            <button class="btn btn-secondary" onclick="closeModal('modalSection')">Отмена</button>
+        </div>
+    </div>
+</div>
+<script>
+// ===================== СПРАВОЧНИКИ =====================
+let editingBuildingId = null;
+let editingSectionId  = null;
+let allBuildings = [];
+
+function loadDirectories() {
+    loadBuildings();
+    loadSections();
+    // SMS-раздел — только для администратора
+    const smsSection = document.getElementById('sms-dir-section');
+    if (smsSection) {
+        if (hasRole('ROLE_ADMIN')) {
+            smsSection.style.display = '';
+            loadSmsDirectories();
+        } else {
+            smsSection.style.display = 'none';
+        }
+    }
+}
+
+function loadBuildings() {
+    fetch('/api/buildings').then(r => r.json()).then(data => {
+        allBuildings = data;
+        renderBuildings(data);
+        // Обновляем select-ы корпусов в модалках
+        populateBuildingSelects(data);
+    });
+}
+
+function populateBuildingSelects(data) {
+    ['eq-building','section-building'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">— Выберите корпус —</option>';
+        data.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b.id; opt.textContent = b.name;
+            sel.appendChild(opt);
+        });
+        if (cur) sel.value = cur;
+    });
+}
+
+function loadSections() {
+    fetch('/api/sections').then(r => r.json()).then(renderSections);
+}
+
+function renderBuildings(data) {
+    const tbody = document.getElementById('buildingsList');
+    tbody.innerHTML = '';
+    data.forEach(b => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${escapeHtml(b.name)}</strong></td>
+            <td>${escapeHtml(b.description || '—')}</td>
+            <td>
+                <button class="btn btn-primary btn-sm mr-1" onclick="openBuildingModal(${b.id},'${escapeHtml(b.name)}','${escapeHtml(b.description||'')}')">&#9998;</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteBuilding(${b.id})">&#128465;</button>
+            </td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+function renderSections(data) {
+    const tbody = document.getElementById('sectionsList');
+    tbody.innerHTML = '';
+    data.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${escapeHtml(s.building ? s.building.name : '—')}</td>
+            <td><strong>${escapeHtml(s.name)}</strong></td>
+            <td>${escapeHtml(s.description || '—')}</td>
+            <td>
+                <button class="btn btn-primary btn-sm mr-1" onclick="openSectionModal(${s.id},'${escapeHtml(s.name)}','${escapeHtml(s.description||'')}',${s.building?s.building.id:0})">&#9998;</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteSection(${s.id})">&#128465;</button>
+            </td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+// ── Корпуса ──
+function openBuildingModal(id, name, desc) {
+    editingBuildingId = id || null;
+    document.getElementById('building-modal-title').textContent = id ? 'Редактировать корпус' : 'Новый корпус';
+    document.getElementById('building-name').value = name || '';
+    document.getElementById('building-desc').value = desc || '';
+    openModal('modalBuilding');
+    setTimeout(() => document.getElementById('building-name').focus(), 100);
+}
+
+function saveBuilding() {
+    const name = document.getElementById('building-name').value.trim();
+    if (!name) { alert('Введите название корпуса'); return; }
+    const body = { name, description: document.getElementById('building-desc').value.trim() };
+    const url    = editingBuildingId ? '/api/buildings/' + editingBuildingId : '/api/buildings';
+    const method = editingBuildingId ? 'PUT' : 'POST';
+    fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
+        .then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.error || r.status); }); })
+        .then(() => { closeModal('modalBuilding'); loadBuildings(); })
+        .catch(err => alert('Ошибка: ' + err.message));
+}
+
+function deleteBuilding(id) {
+    if (!confirm('Удалить корпус? Все участки в нём также будут удалены.')) return;
+    fetch('/api/buildings/' + id, { method: 'DELETE' })
+        .then(() => loadDirectories())
+        .catch(err => alert('Ошибка: ' + err.message));
+}
+
+// ── Участки ──
+function openSectionModal(id, name, desc, buildingId) {
+    editingSectionId = id || null;
+    document.getElementById('section-modal-title').textContent = id ? 'Редактировать участок' : 'Новый участок';
+    document.getElementById('section-name').value = name || '';
+    document.getElementById('section-desc').value = desc || '';
+    // Заполняем select корпусов
+    if (allBuildings.length === 0) {
+        fetch('/api/buildings').then(r => r.json()).then(data => {
+            allBuildings = data;
+            populateBuildingSelects(data);
+            if (buildingId) document.getElementById('section-building').value = buildingId;
+        });
+    } else {
+        populateBuildingSelects(allBuildings);
+        if (buildingId) document.getElementById('section-building').value = buildingId;
+    }
+    openModal('modalSection');
+    setTimeout(() => document.getElementById('section-name').focus(), 100);
+}
+
+function saveSection() {
+    const name       = document.getElementById('section-name').value.trim();
+    const buildingId = document.getElementById('section-building').value;
+    if (!name)       { alert('Введите название участка'); return; }
+    if (!buildingId) { alert('Выберите корпус'); return; }
+    const body = { name, description: document.getElementById('section-desc').value.trim() };
+    const url    = editingSectionId
+        ? '/api/sections/' + editingSectionId
+        : '/api/buildings/' + buildingId + '/sections';
+    const method = editingSectionId ? 'PUT' : 'POST';
+    fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
+        .then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.error || r.status); }); })
+        .then(() => { closeModal('modalSection'); loadDirectories(); })
+        .catch(err => alert('Ошибка: ' + err.message));
+}
+
+function deleteSection(id) {
+    if (!confirm('Удалить участок?')) return;
+    fetch('/api/sections/' + id, { method: 'DELETE' })
+        .then(() => loadDirectories())
+        .catch(err => alert('Ошибка: ' + err.message));
+}
+
+// ── Выбор участка в форме оборудования ──
+function onBuildingChange() {
+    const buildingId = document.getElementById('eq-building').value;
+    const sectionSel = document.getElementById('eq-section');
+    sectionSel.innerHTML = '<option value="">— Выберите участок —</option>';
+    if (!buildingId) return;
+    fetch('/api/buildings/' + buildingId + '/sections')
+        .then(r => r.json())
+        .then(sections => {
+            sections.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id; opt.textContent = s.name;
+                sectionSel.appendChild(opt);
+            });
+        });
+}
+
+// openEqModal обёртка удалена — логика встроена в функцию
+</script>
+
+<!-- ========== МОДАЛКА: ПОЛУЧАТЕЛЬ SMS ========== -->
+<div id="modalSmsRecipient" class="modal-overlay" onclick="handleOverlay(event,'modalSmsRecipient')">
+    <div class="modal-box" style="max-width:440px">
+        <button class="modal-close" onclick="closeModal('modalSmsRecipient')">&times;</button>
+        <h2 id="sms-rec-modal-title">Получатель SMS</h2>
+
+        <span class="form-label">Имя / Описание *</span>
+        <input type="text" id="sms-rec-name" class="form-control" placeholder="Например: Диспетчерская">
+
+        <span class="form-label">Email-адрес SMS-шлюза *</span>
+        <input type="text" id="sms-rec-email" class="form-control" placeholder="79001234567@sms.ru">
+        <small class="text-muted d-block" style="margin-top:-8px;margin-bottom:12px">
+            Формат зависит от SMS-шлюза. Например: <br>
+            <code>79001234567@sms.ru</code> — sms.ru<br>
+            <code>79001234567@smsc.ru</code> — smsc.ru<br>
+            <code>79001234567@smsmail.ru</code> — smsmail.ru
+        </small>
+
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <input type="checkbox" id="sms-rec-active" checked style="width:16px;height:16px">
+            <label for="sms-rec-active" style="margin:0;font-weight:600;font-size:13px">Активен</label>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn btn-success" onclick="saveSmsRecipient()">Сохранить</button>
+            <button class="btn btn-secondary" onclick="closeModal('modalSmsRecipient')">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== МОДАЛКА: УПРАВЛЕНИЕ СТОЛБЦАМИ ========== -->
+<div id="modalColumns" class="modal-overlay" onclick="handleOverlay(event,'modalColumns')">
+    <div class="modal-box" style="max-width:420px">
+        <button class="modal-close" onclick="closeModal('modalColumns')">&times;</button>
+        <h2>&#9776; Настройка столбцов</h2>
+        <div style="font-size:13px;color:#888;margin-bottom:12px">
+            Отметьте галочкой видимые столбцы.<br>
+            Перетащите строку за <strong>&#8645;</strong> чтобы изменить порядок.
+        </div>
+        <div id="colModalList" style="max-height:420px;overflow-y:auto"></div>
+        <div class="modal-actions" style="margin-top:16px">
+            <button class="btn btn-primary" onclick="applyColumnsModal()">Применить</button>
+            <button class="btn btn-secondary" onclick="closeModal('modalColumns')">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== МОДАЛКА: СМЕНА СЛУЖБЫ ========== -->
+<div id="modalChangeService" class="modal-overlay" onclick="handleOverlay(event,'modalChangeService')">
+    <div class="modal-box" style="max-width:400px">
+        <button class="modal-close" onclick="closeModal('modalChangeService')">&times;</button>
+        <h2>&#9881; Сменить службу</h2>
+
+        <div style="padding:8px 12px;background:#f8f9fa;border:1px solid #e0e4e8;border-radius:6px;margin-bottom:14px;font-size:13px">
+            <span style="color:#888;font-weight:600">Текущая служба:</span>
+            <span id="cs-current" style="margin-left:8px;font-weight:600;color:#2c3e50"></span>
+        </div>
+
+        <span class="form-label">Новая служба</span>
+        <select id="cs-service" class="form-control" style="margin-bottom:16px">
+            <option value="UNKNOWN">Причина неизвестна</option>
+            <option value="MECHANICS">&#9881; Механики</option>
+            <option value="ELECTRICIANS">&#9889; Электрики</option>
+            <option value="ELECTRONICS">&#128268; Электроники</option>
+        </select>
+
+        <div class="modal-actions">
+            <button class="btn btn-primary" onclick="doChangeService()">Сохранить</button>
+            <button class="btn btn-secondary" onclick="closeModal('modalChangeService')">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== МОДАЛКА: ИСТОРИЯ ИЗМЕНЕНИЙ ========== -->
+<div id="modalHistory" class="modal-overlay" onclick="handleOverlay(event,'modalHistory')">
+    <div class="modal-box wide" style="max-width:720px">
+        <button class="modal-close" onclick="closeModal('modalHistory')">&times;</button>
+        <h2>&#128336; История изменений заявки</h2>
+        <div style="overflow-x:auto">
+        <table class="table table-bordered table-sm" style="margin:0">
+            <thead>
+                <tr style="background:#ecf0f1">
+                    <th style="width:140px">Дата и время</th>
+                    <th style="width:120px">Пользователь</th>
+                    <th>Изменение</th>
+                </tr>
+            </thead>
+            <tbody id="historyList"></tbody>
+        </table>
+        </div>
+        <div class="modal-actions" style="margin-top:16px">
+            <button class="btn btn-secondary" onclick="closeModal('modalHistory')">Закрыть</button>
+        </div>
+    </div>
+</div>
