@@ -46,7 +46,6 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PATCH,  "/api/requests/*/confirm").hasAnyAuthority("ROLE_CONFIRMER","ROLE_ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/requests/**").hasAnyAuthority("ROLE_DELETER","ROLE_ADMIN")
                 .requestMatchers(HttpMethod.GET,    "/api/requests/**").authenticated()
-                .requestMatchers(HttpMethod.GET,    "/api/requests/*/history").authenticated()
 
                 // Оборудование и файлы
                 .requestMatchers("/api/equipment/**").authenticated()

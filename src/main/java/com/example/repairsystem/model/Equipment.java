@@ -21,6 +21,7 @@ public class Equipment {
     private LocalDate commissioningDate; // Дата ввода в эксплуатацию
 
     // Списание — не удаляем физически, сохраняем историю заявок
+    @Column(columnDefinition = "boolean default false")
     private boolean retired = false;
     private LocalDate retiredDate; // Дата списания
 

@@ -29,7 +29,7 @@ public class EquipmentExcelController {
      * Логика upsert по инвентарному номеру:
      *  - Если оборудование с таким инв.номером уже есть → обновляем название/МОЛ/дату
      *  - Если нет → создаём новое
-     *  - Оборудование которого нет в файле — НЕ трогаем (не списываем автоматически)
+     *  - Оборудование которого нет в файле — НЕ трогаем
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> importExcel(
@@ -40,9 +40,9 @@ public class EquipmentExcelController {
         if (fn == null || !fn.toLowerCase().endsWith(".xlsx"))
             return error("Поддерживаются только файлы .xlsx");
 
-        List<String> created  = new ArrayList<>();
-        List<String> updated  = new ArrayList<>();
-        List<String> errors   = new ArrayList<>();
+        List<String> createdList = new ArrayList<>();
+        List<String> updatedList = new ArrayList<>();
+        List<String> errorList   = new ArrayList<>();
 
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy");
 
@@ -63,7 +63,7 @@ public class EquipmentExcelController {
                 String mol       = cellStr(row, 3);
 
                 if (name.isBlank()) {
-                    errors.add("Строка " + rowNum + ": пустое наименование — пропущена");
+                    errorList.add("Строка " + rowNum + ": пустое наименование — пропущена");
                     continue;
                 }
 
@@ -71,37 +71,33 @@ public class EquipmentExcelController {
                 if (!dateStr.isBlank()) {
                     try { commDate = parseDate(dateStr, dtf); }
                     catch (Exception e) {
-                        errors.add("Строка " + rowNum + " («" + name + "»): неверный формат даты «"
+                        errorList.add("Строка " + rowNum + " («" + name + "»): неверный формат даты «"
                                 + dateStr + "» — ожидается дд.мм.гггг");
                     }
                 }
 
                 if (!invNumber.isBlank()) {
-                    // Upsert по инвентарному номеру
                     Optional<Equipment> existing =
                         equipmentRepository.findByInventoryNumber(invNumber);
 
                     if (existing.isPresent()) {
-                        // Обновляем существующее — инв.номер остаётся, id не меняется
                         Equipment eq = existing.get();
                         eq.setName(name);
-                        if (!mol.isBlank())     eq.setResponsiblePerson(mol);
-                        if (commDate != null)   eq.setCommissioningDate(commDate);
-                        eq.setRetired(false);   // при повторном появлении — снимаем списание
+                        if (!mol.isBlank())    eq.setResponsiblePerson(mol);
+                        if (commDate != null)  eq.setCommissioningDate(commDate);
+                        eq.setRetired(false);
                         eq.setRetiredDate(null);
                         equipmentRepository.save(eq);
-                        updated.add(name + " [" + invNumber + "]");
+                        updatedList.add(name + " [" + invNumber + "]");
                     } else {
-                        // Создаём новое
                         Equipment eq = buildEquipment(name, invNumber, mol, commDate);
                         equipmentRepository.save(eq);
-                        created.add(name + " [" + invNumber + "]");
+                        createdList.add(name + " [" + invNumber + "]");
                     }
                 } else {
-                    // Без инв.номера — просто создаём (дубли возможны, предупреждаем)
                     Equipment eq = buildEquipment(name, null, mol, commDate);
                     equipmentRepository.save(eq);
-                    created.add(name + " (без инв.номера)");
+                    createdList.add(name + " (без инв.номера)");
                 }
             }
 
@@ -110,12 +106,14 @@ public class EquipmentExcelController {
         }
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("created",  created.size());
-        result.put("updated",  updated.size());
-        result.put("errors",   errors.size());
-        result.put("createdList", created);
-        result.put("updatedList", updated);
-        result.put("errorList",   errors);
+        // FIX: добавлено поле "added" как псевдоним "created" — JS использовал res.added
+        result.put("created",     createdList.size());
+        result.put("added",       createdList.size()); // FIX: JS-совместимость
+        result.put("updated",     updatedList.size());
+        result.put("errors",      errorList.size());
+        result.put("createdList", createdList);
+        result.put("updatedList", updatedList);
+        result.put("errorList",   errorList);
         return ResponseEntity.ok(result);
     }
 

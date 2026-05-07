@@ -119,15 +119,15 @@
 
         /* === Топ-бар === */
         .topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
-        #stickyHeader {
+        #eqStickyToolbar {
             position: sticky;
             top: 0;
-            z-index: 900;
+            z-index: 100;
             background: #fff;
-            padding: 12px 30px 0;
-            margin: -20px -30px 0;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 8px 0 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.07);
         }
+        #equipmentTable thead th { background: #ecf0f1; }
         .topbar .user-info { font-size:0.9rem; color:#555; }
         .topbar .user-info strong { color:#2c3e50; }
 
@@ -216,7 +216,6 @@
 <body>
 <div id="mainWindow" class="container-fluid mt-3">
 
-    <div id="stickyHeader">
     <!-- Топ-бар -->
     <div class="topbar">
         <h1 style="margin:0;font-size:1.4rem">🔧 Заявки на ремонт</h1>
@@ -227,7 +226,7 @@
     </div>
 
     <!-- Вкладки -->
-    <ul class="nav nav-tabs mb-0" id="mainTabs">
+    <ul class="nav nav-tabs mb-3" id="mainTabs">
         <li class="nav-item">
             <a class="nav-link active" href="#" onclick="showTab('requests'); return false;">Заявки</a>
         </li>
@@ -293,7 +292,7 @@
             <span id="selectionInfo" style="margin-left:auto">Выберите заявку в таблице</span>
             <button class="btn btn-secondary btn-sm" onclick="openColumnsModal()" title="Настройка столбцов">&#9776; Столбцы</button>
         </div>
-    </div><!-- /#stickyHeader -->
+
 
         <!-- Фильтр по дате -->
         <div class="form-inline mb-2" style="gap:8px;flex-wrap:wrap">
@@ -317,6 +316,7 @@
 
     <!-- ========== ВКЛАДКА: ОБОРУДОВАНИЕ ========== -->
     <div id="tab-equipment" style="display:none;">
+        <div id="eqStickyToolbar">
         <div class="mb-3" style="display:flex;gap:8px;align-items:center">
             <button class="btn btn-primary" id="btnEqAdd" style="display:none" onclick="openEqModal(null)">&#43; Добавить оборудование</button>
             <button class="btn btn-success" id="btnEqImport" style="display:none" onclick="openExcelImportModal()">&#128196; Импорт Excel</button>
@@ -326,6 +326,7 @@
                 <input type="checkbox" id="showRetired" onchange="loadEquipment()" style="width:14px;height:14px">
                 <label for="showRetired" style="margin:0;font-size:13px;cursor:pointer">Показать списанные</label>
             </div>
+        </div><!-- /#eqStickyToolbar -->
             <span id="eqSelectionInfo" style="font-size:13px;color:#888;margin-left:4px">Выберите оборудование</span>
         </div>
         <table class="table table-bordered" id="equipmentTable">
@@ -477,7 +478,7 @@
 
         <span class="form-label">Приоритет *</span>
         <div class="priority-radio">
-            <div><input type="radio" name="c-priority" id="c-normal" value="NORMAL" checked><label for="c-normal" class="normal-lbl">🟢 Текущая</label></div>
+            <div><input type="radio" name="c-priority" id="c-normal" value="NORMAL" checked><label for="c-normal" class="normal-lbl">&#9654; Текущая</label></div>
             <div><input type="radio" name="c-priority" id="c-emergency" value="EMERGENCY"><label for="c-emergency" class="emergency-lbl">🔴 Аварийная</label></div>
         </div>
 
@@ -529,7 +530,7 @@
 
         <span class="form-label">Приоритет *</span>
         <div class="priority-radio">
-            <div><input type="radio" name="e-priority" id="e-normal" value="NORMAL"><label for="e-normal" class="normal-lbl">🟢 Текущая</label></div>
+            <div><input type="radio" name="e-priority" id="e-normal" value="NORMAL"><label for="e-normal" class="normal-lbl">&#9654; Текущая</label></div>
             <div><input type="radio" name="e-priority" id="e-emergency" value="EMERGENCY"><label for="e-emergency" class="emergency-lbl">🔴 Аварийная</label></div>
         </div>
 
@@ -658,8 +659,10 @@ $(function () {
         });
 
     // Простой — предпросмотр
-    document.getElementById('cl-downtime-value').addEventListener('input', updateDowntimePreview);
-    document.getElementById('cl-downtime-unit').addEventListener('change', updateDowntimePreview);
+    ['cl-dt-days','cl-dt-hours','cl-dt-minutes'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('input', updateDowntimePreview);
+    });
 
     // Autocomplete — создание
     setupAutocomplete('#c-equipmentSearch', '#c-equipmentId', '#c-equipmentSelected');
@@ -980,30 +983,18 @@ function openCloseModal() {
     const prio = req.priority || 'NORMAL';
     document.querySelector('input[name="cl-priority"][value="' + prio + '"]').checked = true;
     // Предзаполняем примечание если есть
-    document.getElementById('cl-note').value = req.note || '';
-    // Автоматически рассчитываем простой: от даты создания заявки до текущего момента
+    document.getElementById('cl-note').value   = req.note || '';
+    document.getElementById('cl-reason').value  = '';
+    // Автоматически рассчитываем простой: от даты создания до сейчас
     if (req.createdAt) {
-        const created   = new Date(req.createdAt);
-        const now       = new Date();
-        const diffMins  = Math.round((now - created) / 60000);
-        // Выбираем удобную единицу измерения
-        if (diffMins >= 1440) {
-            // Дни (округляем до 0.5 дня)
-            const days = Math.round(diffMins / 144) / 10;
-            document.getElementById('cl-downtime-value').value = days;
-            document.getElementById('cl-downtime-unit').value  = 'days';
-        } else if (diffMins >= 60) {
-            // Часы (округляем до 0.5 часа)
-            const hours = Math.round(diffMins / 6) / 10;
-            document.getElementById('cl-downtime-value').value = hours;
-            document.getElementById('cl-downtime-unit').value  = 'hours';
-        } else {
-            document.getElementById('cl-downtime-value').value = diffMins;
-            document.getElementById('cl-downtime-unit').value  = 'minutes';
-        }
+        const diffMins = Math.round((new Date() - new Date(req.createdAt)) / 60000);
+        document.getElementById('cl-dt-days').value    = Math.floor(diffMins / 1440) || '';
+        document.getElementById('cl-dt-hours').value   = Math.floor((diffMins % 1440) / 60) || '';
+        document.getElementById('cl-dt-minutes').value = diffMins % 60 || '';
     } else {
-        document.getElementById('cl-downtime-value').value = '';
-        document.getElementById('cl-downtime-unit').value  = 'minutes';
+        document.getElementById('cl-dt-days').value    = '';
+        document.getElementById('cl-dt-hours').value   = '';
+        document.getElementById('cl-dt-minutes').value = '';
     }
     updateDowntimePreview();
     openModal('modalClose');
@@ -1013,17 +1004,16 @@ function openCloseModal() {
 function doClose() {
     if (!selectedReqId) return;
     const priority = document.querySelector('input[name="cl-priority"]:checked').value;
-    const note     = document.getElementById('cl-note').value.trim();
-
-    // Рассчитываем простой в минутах
-    const dtVal  = parseFloat(document.getElementById('cl-downtime-value').value) || 0;
-    const dtUnit = document.getElementById('cl-downtime-unit').value;
-    let downtimeMinutes = null;
-    if (dtVal > 0) {
-        if (dtUnit === 'minutes') downtimeMinutes = Math.round(dtVal);
-        if (dtUnit === 'hours')   downtimeMinutes = Math.round(dtVal * 60);
-        if (dtUnit === 'days')    downtimeMinutes = Math.round(dtVal * 60 * 24);
-    }
+    const reason = document.getElementById('cl-reason').value.trim();
+    const works  = document.getElementById('cl-note').value.trim();
+    const noteParts = [];
+    if (reason) noteParts.push('Причина: ' + reason);
+    if (works)  noteParts.push('Работы: ' + works);
+    const note = noteParts.join('\n');
+    const days    = parseInt(document.getElementById('cl-dt-days').value)    || 0;
+    const hours   = parseInt(document.getElementById('cl-dt-hours').value)   || 0;
+    const minutes = parseInt(document.getElementById('cl-dt-minutes').value) || 0;
+    const downtimeMinutes = (days * 1440 + hours * 60 + minutes) || null;
 
     fetch('/api/requests/' + selectedReqId + '/close', {
         method: 'PATCH',
@@ -1040,22 +1030,13 @@ function doClose() {
 
 // Предпросмотр простоя при изменении значения или единицы
 function updateDowntimePreview() {
-    const val  = parseFloat(document.getElementById('cl-downtime-value').value) || 0;
-    const unit = document.getElementById('cl-downtime-unit').value;
+    const d = parseInt(document.getElementById('cl-dt-days')    ? document.getElementById('cl-dt-days').value    : 0) || 0;
+    const h = parseInt(document.getElementById('cl-dt-hours')   ? document.getElementById('cl-dt-hours').value   : 0) || 0;
+    const m = parseInt(document.getElementById('cl-dt-minutes') ? document.getElementById('cl-dt-minutes').value : 0) || 0;
     const prev = document.getElementById('cl-downtime-preview');
-    if (!val) { prev.textContent = ''; return; }
-    let mins = 0;
-    if (unit === 'minutes') mins = val;
-    if (unit === 'hours')   mins = val * 60;
-    if (unit === 'days')    mins = val * 60 * 24;
-    const d = Math.floor(mins / 1440);
-    const h = Math.floor((mins % 1440) / 60);
-    const m = Math.round(mins % 60);
-    let parts = [];
-    if (d) parts.push(d + ' дн.');
-    if (h) parts.push(h + ' ч.');
-    if (m) parts.push(m + ' мин.');
-    prev.textContent = '= ' + (parts.join(' ') || '0 мин.');
+    if (!prev) return;
+    if (!d && !h && !m) { prev.textContent = ''; return; }
+    prev.textContent = '= ' + formatDowntime(d * 1440 + h * 60 + m);
 }
 
 // ===================== ПОЛЬЗОВАТЕЛИ =====================
@@ -2397,7 +2378,6 @@ function escapeHtml(str) {
         <button class="modal-close" onclick="closeModal('modalClose')">&times;</button>
         <h2>Закрыть заявку <span id="cl-id-label" style="color:#aaa;font-size:1rem;"></span></h2>
 
-        <!-- Текущий статус -->
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:8px 12px;background:#f8f9fa;border-radius:6px;border:1px solid #e0e4e8;">
             <span style="font-size:12px;font-weight:600;color:#888;">Заявка:</span>
             <span id="cl-title-label" style="font-weight:600;color:#2c3e50;"></span>
@@ -2405,23 +2385,31 @@ function escapeHtml(str) {
 
         <span class="form-label">Приоритет</span>
         <div class="priority-radio">
-            <div><input type="radio" name="cl-priority" id="cl-normal" value="NORMAL"><label for="cl-normal" class="normal-lbl">&#127898; Текущая</label></div>
+            <div><input type="radio" name="cl-priority" id="cl-normal" value="NORMAL"><label for="cl-normal" class="normal-lbl">&#9654; Текущая</label></div>
             <div><input type="radio" name="cl-priority" id="cl-emergency" value="EMERGENCY"><label for="cl-emergency" class="emergency-lbl">&#128308; Аварийная</label></div>
         </div>
 
-        <span class="form-label">Примечание</span>
-        <textarea id="cl-note" class="form-control" rows="2" placeholder="Опишите выполненные работы или причину закрытия..."></textarea>
+        <span class="form-label">Причина поломки</span>
+        <textarea id="cl-reason" class="form-control" rows="2" placeholder="Опишите причину поломки..."></textarea>
+
+        <span class="form-label" style="margin-top:8px">Выполненные работы</span>
+        <textarea id="cl-note" class="form-control" rows="2" placeholder="Опишите выполненные работы..."></textarea>
 
         <span class="form-label" style="margin-top:8px">Реальный простой оборудования</span>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
-            <input type="number" id="cl-downtime-value" class="form-control" min="0"
-                   style="width:100px" placeholder="0">
-            <select id="cl-downtime-unit" class="form-control" style="width:130px">
-                <option value="minutes">Минуты</option>
-                <option value="hours">Часы</option>
-                <option value="days">Дни</option>
-            </select>
-            <span id="cl-downtime-preview" style="font-size:13px;color:#7f8c8d;white-space:nowrap"></span>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:4px">
+                <input type="number" id="cl-dt-days" class="form-control" min="0" style="width:68px" placeholder="0">
+                <span style="font-size:13px;color:#555">дн.</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px">
+                <input type="number" id="cl-dt-hours" class="form-control" min="0" max="23" style="width:68px" placeholder="0">
+                <span style="font-size:13px;color:#555">ч.</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px">
+                <input type="number" id="cl-dt-minutes" class="form-control" min="0" max="59" style="width:68px" placeholder="0">
+                <span style="font-size:13px;color:#555">мин.</span>
+            </div>
+            <span id="cl-downtime-preview" style="font-size:12px;color:#7f8c8d"></span>
         </div>
 
         <div class="modal-actions" style="margin-top:8px">
@@ -2430,7 +2418,6 @@ function escapeHtml(str) {
         </div>
     </div>
 </div>
-
 
 <!-- ========== МОДАЛКА: ДЕТАЛИ ЗАЯВКИ (двойной клик) ========== -->
 <div id="modalRequestDetail" class="modal-overlay" onclick="handleOverlay(event,'modalRequestDetail')">
